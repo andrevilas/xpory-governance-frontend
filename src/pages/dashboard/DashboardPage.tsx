@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { AppLayout } from '../../components/layout/AppLayout';
+import { fetchEndpoints, fetchStacks, PortainerEndpoint, PortainerStack } from '../../services/portainer';
 import './dashboard.css';
 
 type StackRow = {
@@ -8,21 +9,56 @@ type StackRow = {
   name: string;
   status: 'ok' | 'warn';
   version: string;
+  endpointName: string;
 };
-
-const stacksMock: StackRow[] = [
-  { id: 1, name: 'core-api', status: 'ok', version: '1.4.2' },
-  { id: 2, name: 'billing', status: 'warn', version: '1.1.0' },
-  { id: 3, name: 'notifications', status: 'ok', version: '2.0.3' },
-];
 
 export function DashboardPage(): JSX.Element {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<StackRow | null>(null);
+  const [endpoints, setEndpoints] = useState<PortainerEndpoint[]>([]);
+  const [stacks, setStacks] = useState<PortainerStack[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [endpointsResult, stacksResult] = await Promise.all([
+          fetchEndpoints(),
+          fetchStacks(),
+        ]);
+        setEndpoints(endpointsResult);
+        setStacks(stacksResult);
+      } catch (err) {
+        void err;
+        setError('Nao foi possivel carregar dados do Portainer.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void loadData();
+  }, []);
+
+  const endpointMap = useMemo(() => {
+    return new Map(endpoints.map((endpoint) => [endpoint.id, endpoint.name]));
+  }, [endpoints]);
+
+  const stackRows = useMemo<StackRow[]>(() => {
+    return stacks.map((stack) => ({
+      id: stack.id,
+      name: stack.name,
+      status: stack.status === 1 ? 'ok' : 'warn',
+      version: stack.type ? String(stack.type) : 'N/A',
+      endpointName: endpointMap.get(stack.endpointId) ?? `Endpoint ${stack.endpointId}`,
+    }));
+  }, [stacks, endpointMap]);
 
   const filteredStacks = useMemo(
-    () => stacksMock.filter((row) => row.name.toLowerCase().includes(search.toLowerCase())),
-    [search]
+    () => stackRows.filter((row) => row.name.toLowerCase().includes(search.toLowerCase())),
+    [search, stackRows]
   );
 
   return (
@@ -31,21 +67,23 @@ export function DashboardPage(): JSX.Element {
         <section className="card-grid">
           <div className="card">
             <h3>Instancias</h3>
-            <div className="value">12</div>
+            <div className="value">{loading ? '-' : endpoints.length}</div>
           </div>
           <div className="card">
             <h3>Stacks monitoradas</h3>
-            <div className="value">32</div>
+            <div className="value">{loading ? '-' : stacks.length}</div>
           </div>
           <div className="card">
             <h3>Auditorias em andamento</h3>
-            <div className="value">3</div>
+            <div className="value">0</div>
           </div>
           <div className="card">
             <h3>Risco elevado</h3>
-            <div className="value">2</div>
+            <div className="value">0</div>
           </div>
         </section>
+
+        {error && <div className="inline-alert">{error}</div>}
 
         <section className="section">
           <h2>Stacks</h2>
@@ -60,8 +98,9 @@ export function DashboardPage(): JSX.Element {
             <thead>
               <tr>
                 <th>Nome</th>
+                <th>Endpoint</th>
                 <th>Status</th>
-                <th>Versao</th>
+                <th>Tipo</th>
                 <th>Acoes</th>
               </tr>
             </thead>
@@ -69,9 +108,10 @@ export function DashboardPage(): JSX.Element {
               {filteredStacks.map((stack) => (
                 <tr key={stack.id}>
                   <td>{stack.name}</td>
+                  <td>{stack.endpointName}</td>
                   <td>
                     <span className={`badge ${stack.status}`}>
-                      {stack.status === 'ok' ? 'OK' : 'Risco'}
+                      {stack.status === 'ok' ? 'OK' : 'Atenção'}
                     </span>
                   </td>
                   <td>{stack.version}</td>
@@ -101,9 +141,10 @@ export function DashboardPage(): JSX.Element {
                 Fechar
               </button>
             </header>
-            <p>Status atual: {selected.status === 'ok' ? 'OK' : 'Risco'}</p>
-            <p>Versao atual: {selected.version}</p>
-            <p>Ultima auditoria: 2h atras</p>
+            <p>Endpoint: {selected.endpointName}</p>
+            <p>Status atual: {selected.status === 'ok' ? 'OK' : 'Atenção'}</p>
+            <p>Tipo da stack: {selected.version}</p>
+            <p>Ultima auditoria: pendente</p>
           </div>
         </div>
       )}

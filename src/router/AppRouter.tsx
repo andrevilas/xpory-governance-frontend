@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
+import { ProtectedRoute } from '../components/ProtectedRoute';
 import { AlertsPage } from '../pages/alerts/AlertsPage';
 import { DashboardPage } from '../pages/dashboard/DashboardPage';
 import { LoginPage } from '../pages/login/LoginPage';
@@ -10,11 +11,13 @@ export function AppRouter(): JSX.Element {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/app/dashboard" element={<DashboardPage />} />
-        <Route path="/app/updates" element={<UpdatePage />} />
-        <Route path="/app/alerts" element={<AlertsPage />} />
+        <Route path="/app" element={<ProtectedRoute />}>
+          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="updates" element={<UpdatePage />} />
+          <Route path="alerts" element={<AlertsPage />} />
+        </Route>
         <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="/app" element={<Navigate to="/app/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
   );
