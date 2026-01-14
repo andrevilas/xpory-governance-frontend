@@ -21,6 +21,12 @@
   padding: 10px;
   border-bottom: 1px solid #eaecf0;
   text-align: left;
+  vertical-align: top;
+  white-space: pre-wrap;
+}
+
+.diff-table tr.changed td {
+  background: #fff7ed;
 }
 
 .diff-table .before {
@@ -55,6 +61,38 @@
 .status {
   color: #475467;
   margin: 0;
+}
+
+.update-card textarea {
+  width: 100%;
+  min-height: 160px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #d0d5dd;
+  font-family: "SFMono-Regular", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+}
+
+.update-card select {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #d0d5dd;
+}
+
+.inline-alert {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 14px;
+}
+
+.error-list {
+  margin-top: 12px;
+  padding-left: 18px;
+  color: #b91c1c;
 }
 
 .health-grid {

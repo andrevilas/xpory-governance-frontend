@@ -1,53 +1,171 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { AppLayout } from '../../components/layout/AppLayout';
+import { fetchInventoryStacks, InventoryStack } from '../../services/inventory';
+import { executeUpdate, fetchCompose, UpdateResponse } from '../../services/update';
 import './update.css';
 
 type UpdateStatus = 'pending' | 'approved' | 'running' | 'success' | 'failed';
 
 type DiffRow = {
   id: number;
-  service: string;
   before: string;
   after: string;
+  changed: boolean;
 };
-
-const diffMock: DiffRow[] = [
-  { id: 1, service: 'core-api', before: '1.4.2', after: '1.5.0' },
-  { id: 2, service: 'billing', before: '1.1.0', after: '1.2.0' },
-];
 
 export function UpdatePage(): JSX.Element {
   const [status, setStatus] = useState<UpdateStatus>('pending');
+  const [stacks, setStacks] = useState<InventoryStack[]>([]);
+  const [selected, setSelected] = useState<InventoryStack | null>(null);
+  const [currentCompose, setCurrentCompose] = useState('');
+  const [nextCompose, setNextCompose] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [updateResult, setUpdateResult] = useState<UpdateResponse | null>(null);
 
   const canApprove = status === 'pending';
   const canExecute = status === 'approved';
 
+  useEffect(() => {
+    const loadStacks = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await fetchInventoryStacks();
+        setStacks(result);
+        setSelected(result[0] ?? null);
+      } catch (err) {
+        void err;
+        setError('Nao foi possivel carregar stacks.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void loadStacks();
+  }, []);
+
+  useEffect(() => {
+    const loadCompose = async () => {
+      if (!selected) {
+        return;
+      }
+      try {
+        const compose = await fetchCompose(selected.portainerStackId, selected.endpointId);
+        setCurrentCompose(compose);
+        setNextCompose(compose);
+      } catch (err) {
+        void err;
+        setError('Nao foi possivel carregar compose atual.');
+      }
+    };
+
+    void loadCompose();
+  }, [selected]);
+
+  const diffRows = useMemo<DiffRow[]>(() => {
+    const beforeLines = currentCompose.split('\n');
+    const afterLines = nextCompose.split('\n');
+    const maxLines = Math.max(beforeLines.length, afterLines.length);
+    const rows: DiffRow[] = [];
+    for (let i = 0; i < maxLines; i += 1) {
+      const before = beforeLines[i] ?? '';
+      const after = afterLines[i] ?? '';
+      rows.push({
+        id: i,
+        before,
+        after,
+        changed: before !== after,
+      });
+    }
+    return rows;
+  }, [currentCompose, nextCompose]);
+
   const healthIndicators = useMemo(
     () => [
-      { label: 'Pre-update', value: status === 'running' || status === 'success' ? 'OK' : 'Pendente' },
-      { label: 'Post-update', value: status === 'success' ? 'OK' : status === 'failed' ? 'Falha' : 'Pendente' },
+      { label: 'Pre-update', value: updateResult?.steps.preHealth ? 'OK' : 'Pendente' },
+      { label: 'Post-update', value: updateResult?.steps.postHealth ? 'OK' : 'Pendente' },
     ],
-    [status]
+    [updateResult]
   );
+
+  const handleApprove = () => {
+    setStatus('approved');
+  };
+
+  const handleExecute = async (dryRun: boolean) => {
+    if (!selected) {
+      return;
+    }
+    setStatus('running');
+    setError(null);
+    try {
+      const result = await executeUpdate(
+        selected.portainerStackId,
+        selected.endpointId,
+        nextCompose,
+        dryRun,
+      );
+      setUpdateResult(result);
+      if (result.errors.length > 0) {
+        setStatus('failed');
+      } else {
+        setStatus('success');
+      }
+    } catch (err) {
+      void err;
+      setError('Falha ao executar update.');
+      setStatus('failed');
+    }
+  };
 
   return (
     <AppLayout title="Atualizacoes">
       <div className="update-page">
         <section className="update-card">
+          <h2>Selecao de stack</h2>
+          {error && <div className="inline-alert">{error}</div>}
+          <select
+            value={selected?.id ?? ''}
+            onChange={(event) => {
+              const next = stacks.find((stack) => stack.id === event.target.value) ?? null;
+              setSelected(next);
+              setStatus('pending');
+              setUpdateResult(null);
+            }}
+            disabled={loading}
+          >
+            {stacks.map((stack) => (
+              <option key={stack.id} value={stack.id}>
+                {stack.name} (endpoint {stack.endpointId})
+              </option>
+            ))}
+          </select>
+        </section>
+
+        <section className="update-card">
+          <h2>Compose atual</h2>
+          <textarea value={currentCompose} readOnly rows={8} />
+        </section>
+
+        <section className="update-card">
+          <h2>Novo compose</h2>
+          <textarea value={nextCompose} onChange={(event) => setNextCompose(event.target.value)} rows={8} />
+        </section>
+
+        <section className="update-card">
           <h2>Diff do Compose</h2>
           <table className="diff-table">
             <thead>
               <tr>
-                <th>Servico</th>
                 <th>Antes</th>
                 <th>Depois</th>
               </tr>
             </thead>
             <tbody>
-              {diffMock.map((row) => (
-                <tr key={row.id}>
-                  <td>{row.service}</td>
+              {diffRows.map((row) => (
+                <tr key={row.id} className={row.changed ? 'changed' : ''}>
                   <td className="before">{row.before}</td>
                   <td className="after">{row.after}</td>
                 </tr>
@@ -59,20 +177,24 @@ export function UpdatePage(): JSX.Element {
         <section className="update-card">
           <h2>Fluxo de aprovacao</h2>
           <div className="actions">
-            <button type="button" disabled={!canApprove} onClick={() => setStatus('approved')}>
+            <button type="button" disabled={!canApprove} onClick={handleApprove}>
               Aprovar atualizacao
             </button>
-            <button type="button" disabled={!canExecute} onClick={() => setStatus('running')}>
+            <button type="button" disabled={!canExecute} onClick={() => handleExecute(true)}>
+              Dry run
+            </button>
+            <button type="button" disabled={!canExecute} onClick={() => handleExecute(false)}>
               Executar update
-            </button>
-            <button type="button" disabled={status !== 'running'} onClick={() => setStatus('success')}>
-              Marcar sucesso
-            </button>
-            <button type="button" disabled={status !== 'running'} onClick={() => setStatus('failed')}>
-              Marcar falha
             </button>
           </div>
           <p className="status">Status atual: {status}</p>
+          {updateResult?.errors?.length ? (
+            <ul className="error-list">
+              {updateResult.errors.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          ) : null}
         </section>
 
         <section className="update-card">
