@@ -1,0 +1,57 @@
+.alerts-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.alerts-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #e2e8f0;
+}
+
+.alerts-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.alerts-card li {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.severity {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.severity.low {
+  background: #eff8ff;
+  color: #175cd3;
+}
+
+.severity.medium {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.severity.high {
+  background: #fef3f2;
+  color: #b42318;
+}
+
+.alerts-card p {
+  margin: 4px 0 0;
+  color: #667085;
+}
