@@ -123,3 +123,20 @@
   border-radius: 6px;
   cursor: pointer;
 }
+
+.audit-results {
+  margin-top: 16px;
+}
+
+.audit-results table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.audit-results th,
+.audit-results td {
+  text-align: left;
+  padding: 6px 4px;
+  border-bottom: 1px solid #e5e7eb;
+}

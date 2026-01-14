@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { AppLayout } from '../../components/layout/AppLayout';
-import { fetchEndpoints, fetchStacks, PortainerEndpoint, PortainerStack } from '../../services/portainer';
+import { fetchAuditResults, AuditResult } from '../../services/audit';
+import { fetchInventoryStacks, fetchInventorySummary, InventoryStack, InventorySummary } from '../../services/inventory';
+import { fetchEndpoints, PortainerEndpoint } from '../../services/portainer';
 import './dashboard.css';
 
 type StackRow = {
-  id: number;
+  id: string;
   name: string;
   status: 'ok' | 'warn';
   version: string;
@@ -16,8 +18,11 @@ export function DashboardPage(): JSX.Element {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<StackRow | null>(null);
   const [endpoints, setEndpoints] = useState<PortainerEndpoint[]>([]);
-  const [stacks, setStacks] = useState<PortainerStack[]>([]);
+  const [stacks, setStacks] = useState<InventoryStack[]>([]);
+  const [summary, setSummary] = useState<InventorySummary | null>(null);
+  const [auditResults, setAuditResults] = useState<AuditResult[]>([]);
   const [loading, setLoading] = useState(true);
+  const [auditLoading, setAuditLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -25,15 +30,17 @@ export function DashboardPage(): JSX.Element {
       setLoading(true);
       setError(null);
       try {
-        const [endpointsResult, stacksResult] = await Promise.all([
+        const [endpointsResult, stacksResult, summaryResult] = await Promise.all([
           fetchEndpoints(),
-          fetchStacks(),
+          fetchInventoryStacks(),
+          fetchInventorySummary(),
         ]);
         setEndpoints(endpointsResult);
         setStacks(stacksResult);
+        setSummary(summaryResult);
       } catch (err) {
         void err;
-        setError('Nao foi possivel carregar dados do Portainer.');
+        setError('Nao foi possivel carregar dados do inventario.');
       } finally {
         setLoading(false);
       }
@@ -50,11 +57,32 @@ export function DashboardPage(): JSX.Element {
     return stacks.map((stack) => ({
       id: stack.id,
       name: stack.name,
-      status: stack.status === 1 ? 'ok' : 'warn',
+      status: stack.outdated ? 'warn' : 'ok',
       version: stack.type ? String(stack.type) : 'N/A',
       endpointName: endpointMap.get(stack.endpointId) ?? `Endpoint ${stack.endpointId}`,
     }));
   }, [stacks, endpointMap]);
+
+  useEffect(() => {
+    const loadAudit = async () => {
+      if (!selected) {
+        setAuditResults([]);
+        return;
+      }
+      setAuditLoading(true);
+      try {
+        const results = await fetchAuditResults(selected.id);
+        setAuditResults(results);
+      } catch (err) {
+        void err;
+        setAuditResults([]);
+      } finally {
+        setAuditLoading(false);
+      }
+    };
+
+    void loadAudit();
+  }, [selected]);
 
   const filteredStacks = useMemo(
     () => stackRows.filter((row) => row.name.toLowerCase().includes(search.toLowerCase())),
@@ -67,11 +95,11 @@ export function DashboardPage(): JSX.Element {
         <section className="card-grid">
           <div className="card">
             <h3>Instancias</h3>
-            <div className="value">{loading ? '-' : endpoints.length}</div>
+            <div className="value">{loading ? '-' : summary?.endpoints ?? 0}</div>
           </div>
           <div className="card">
             <h3>Stacks monitoradas</h3>
-            <div className="value">{loading ? '-' : stacks.length}</div>
+            <div className="value">{loading ? '-' : summary?.stacks ?? 0}</div>
           </div>
           <div className="card">
             <h3>Auditorias em andamento</h3>
@@ -79,7 +107,7 @@ export function DashboardPage(): JSX.Element {
           </div>
           <div className="card">
             <h3>Risco elevado</h3>
-            <div className="value">0</div>
+            <div className="value">{loading ? '-' : summary?.outdatedStacks ?? 0}</div>
           </div>
         </section>
 
@@ -128,7 +156,8 @@ export function DashboardPage(): JSX.Element {
 
         <section className="section">
           <h2>Auditoria</h2>
-          <p>Resumo: 2 stacks com updates disponiveis, 1 com drift detectado.</p>
+          <p>Ultima auditoria: {summary?.lastAuditAt ?? 'pendente'}</p>
+          <p>Stacks desatualizadas: {summary?.outdatedStacks ?? 0}</p>
         </section>
       </div>
 
@@ -144,7 +173,37 @@ export function DashboardPage(): JSX.Element {
             <p>Endpoint: {selected.endpointName}</p>
             <p>Status atual: {selected.status === 'ok' ? 'OK' : 'Atenção'}</p>
             <p>Tipo da stack: {selected.version}</p>
-            <p>Ultima auditoria: pendente</p>
+            <p>Ultima auditoria: {summary?.lastAuditAt ?? 'pendente'}</p>
+
+            <section className="audit-results">
+              <h4>Auditoria da stack</h4>
+              {auditLoading ? (
+                <p>Carregando auditoria...</p>
+              ) : auditResults.length === 0 ? (
+                <p>Nenhum resultado disponivel.</p>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Imagem</th>
+                      <th>Atual</th>
+                      <th>Ultima</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {auditResults.map((item) => (
+                      <tr key={item.id}>
+                        <td>{item.image}</td>
+                        <td>{item.currentTag}</td>
+                        <td>{item.latestTag}</td>
+                        <td>{item.updateAvailable ? 'Update' : 'OK'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </section>
           </div>
         </div>
       )}
