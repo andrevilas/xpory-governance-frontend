@@ -20,6 +20,39 @@
   gap: 12px;
 }
 
+.inline-alert {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.filters {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.filters select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #d0d5dd;
+}
+
+.log-list li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.log-list li p {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  color: #475467;
+}
+
 .alerts-card li {
   display: flex;
   gap: 12px;

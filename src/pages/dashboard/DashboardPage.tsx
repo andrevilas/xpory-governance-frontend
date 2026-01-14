@@ -159,6 +159,16 @@ export function DashboardPage(): JSX.Element {
           <p>Ultima auditoria: {summary?.lastAuditAt ?? 'pendente'}</p>
           <p>Stacks desatualizadas: {summary?.outdatedStacks ?? 0}</p>
         </section>
+
+        <section className="section">
+          <h2>Guia rapido operacional</h2>
+          <ol className="onboarding">
+            <li>Revise o inventario e identifique stacks desatualizadas.</li>
+            <li>Abra a tela de Atualizacoes e execute o dry-run.</li>
+            <li>Aprove o update e acompanhe os health-checks.</li>
+            <li>Monitore alertas e logs para validar o resultado.</li>
+          </ol>
+        </section>
       </div>
 
       {selected && (

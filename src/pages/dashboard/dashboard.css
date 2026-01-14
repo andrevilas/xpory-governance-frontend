@@ -49,6 +49,14 @@
   font-size: 18px;
 }
 
+.onboarding {
+  margin: 0;
+  padding-left: 18px;
+  color: #475467;
+  display: grid;
+  gap: 6px;
+}
+
 .table-tools {
   display: flex;
   justify-content: space-between;
