@@ -1,9 +1,14 @@
 import { test, expect } from '@playwright/test';
 
 import { login } from './helpers/auth';
+import { setupApiMocks } from './helpers/mockApi';
 import { selectors } from './helpers/selectors';
 
 test.describe('Auth', () => {
+  test.beforeEach(async ({ page }) => {
+    await setupApiMocks(page);
+  });
+
   test('login valido', async ({ page }) => {
     await login(page);
     await expect(page.locator(selectors.dashboard.summaryCards)).toBeVisible();

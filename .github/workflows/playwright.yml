@@ -1,0 +1,44 @@
+name: e2e
+
+on:
+  push:
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "playwright.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/playwright.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "playwright.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/playwright.yml"
+
+jobs:
+  playwright:
+    runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_BASE_URL: http://localhost:8081
+      PLAYWRIGHT_HEADLESS: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run E2E tests
+        run: npm run test:e2e

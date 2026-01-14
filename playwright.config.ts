@@ -8,6 +8,12 @@ export default defineConfig({
   },
   retries: 1,
   reporter: [['list'], ['html', { open: 'never' }]],
+  webServer: {
+    command: 'npm run dev -- --host 0.0.0.0 --port 8081',
+    url: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:8081',
+    reuseExistingServer: true,
+    timeout: 120_000,
+  },
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:8081',
     headless: process.env.PLAYWRIGHT_HEADLESS !== 'false',
