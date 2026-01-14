@@ -51,6 +51,7 @@ export function LoginPage(): JSX.Element {
             placeholder="usuario@xpory.com"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
+            data-testid="auth.login.email.input"
             required
           />
 
@@ -62,12 +63,13 @@ export function LoginPage(): JSX.Element {
             placeholder="••••••••"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
+            data-testid="auth.login.password.input"
             required
           />
 
           {error && <span className="error">{error}</span>}
 
-          <button type="submit" disabled={loading}>
+          <button type="submit" disabled={loading} data-testid="auth.login.submit.button">
             {loading ? 'Entrando...' : 'Entrar'}
           </button>
         </form>

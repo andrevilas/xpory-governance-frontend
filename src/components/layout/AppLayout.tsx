@@ -1,3 +1,6 @@
+import { useNavigate } from 'react-router-dom';
+
+import { useAuth } from '../../context/auth/useAuth';
 import './app-layout.css';
 
 type AppLayoutProps = {
@@ -6,6 +9,14 @@ type AppLayoutProps = {
 };
 
 export function AppLayout({ title, children }: AppLayoutProps): JSX.Element {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
   return (
     <div className="app-layout">
       <aside className="sidebar">
@@ -30,7 +41,14 @@ export function AppLayout({ title, children }: AppLayoutProps): JSX.Element {
         <header className="header">
           <div className="breadcrumb">Home / {title}</div>
           <div className="header-actions">
-            <button type="button" className="header-button">Conta</button>
+            <button
+              type="button"
+              className="header-button"
+              data-testid="auth.session.logout.button"
+              onClick={handleLogout}
+            >
+              Sair
+            </button>
           </div>
         </header>
 

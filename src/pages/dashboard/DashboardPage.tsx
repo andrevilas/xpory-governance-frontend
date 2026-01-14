@@ -21,6 +21,7 @@ export function DashboardPage(): JSX.Element {
   const [stacks, setStacks] = useState<InventoryStack[]>([]);
   const [summary, setSummary] = useState<InventorySummary | null>(null);
   const [auditResults, setAuditResults] = useState<AuditResult[]>([]);
+  const [auditFilter, setAuditFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [auditLoading, setAuditLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,25 +90,37 @@ export function DashboardPage(): JSX.Element {
     [search, stackRows]
   );
 
+  const filteredAuditResults = useMemo(() => {
+    if (!auditFilter) {
+      return auditResults;
+    }
+    const needle = auditFilter.toLowerCase();
+    return auditResults.filter((item) => item.image.toLowerCase().includes(needle));
+  }, [auditFilter, auditResults]);
+
   return (
     <AppLayout title="Dashboard">
       <div className="dashboard">
-        <section className="card-grid">
+        <section className="card-grid" data-testid="dashboard.summary.cards">
           <div className="card">
             <h3>Instancias</h3>
             <div className="value">{loading ? '-' : summary?.endpoints ?? 0}</div>
           </div>
           <div className="card">
             <h3>Stacks monitoradas</h3>
-            <div className="value">{loading ? '-' : summary?.stacks ?? 0}</div>
+            <div className="value" data-testid="dashboard.kpi.inventory.count">
+              {loading ? '-' : summary?.stacks ?? 0}
+            </div>
           </div>
           <div className="card">
             <h3>Auditorias em andamento</h3>
-            <div className="value">0</div>
+            <div className="value" data-testid="dashboard.kpi.updates.count">0</div>
           </div>
           <div className="card">
             <h3>Risco elevado</h3>
-            <div className="value">{loading ? '-' : summary?.outdatedStacks ?? 0}</div>
+            <div className="value" data-testid="dashboard.kpi.alerts.count">
+              {loading ? '-' : summary?.outdatedStacks ?? 0}
+            </div>
           </div>
         </section>
 
@@ -120,9 +133,10 @@ export function DashboardPage(): JSX.Element {
               placeholder="Filtrar por nome"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
+              data-testid="inventory.filter.status.select"
             />
           </div>
-          <table className="table">
+          <table className="table" data-testid="inventory.list.table">
             <thead>
               <tr>
                 <th>Nome</th>
@@ -175,7 +189,7 @@ export function DashboardPage(): JSX.Element {
         <div className="modal-overlay" role="dialog" aria-modal="true">
           <div className="modal">
             <header>
-              <h3>{selected.name}</h3>
+              <h3 data-testid="inventory.detail.hostname.text">{selected.name}</h3>
               <button type="button" onClick={() => setSelected(null)}>
                 Fechar
               </button>
@@ -187,12 +201,23 @@ export function DashboardPage(): JSX.Element {
 
             <section className="audit-results">
               <h4>Auditoria da stack</h4>
+              <div className="table-tools">
+                <input
+                  placeholder="Filtrar por imagem"
+                  value={auditFilter}
+                  onChange={(event) => setAuditFilter(event.target.value)}
+                  data-testid="audit.filter.actor.input"
+                />
+                <button type="button" data-testid="audit.export.button">
+                  Exportar
+                </button>
+              </div>
               {auditLoading ? (
                 <p>Carregando auditoria...</p>
-              ) : auditResults.length === 0 ? (
+              ) : filteredAuditResults.length === 0 ? (
                 <p>Nenhum resultado disponivel.</p>
               ) : (
-                <table>
+                <table data-testid="audit.events.table">
                   <thead>
                     <tr>
                       <th>Imagem</th>
@@ -202,7 +227,7 @@ export function DashboardPage(): JSX.Element {
                     </tr>
                   </thead>
                   <tbody>
-                    {auditResults.map((item) => (
+                    {filteredAuditResults.map((item) => (
                       <tr key={item.id}>
                         <td>{item.image}</td>
                         <td>{item.currentTag}</td>

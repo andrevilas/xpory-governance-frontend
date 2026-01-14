@@ -17,6 +17,9 @@ export function AlertsPage(): JSX.Element {
   const [channelFilter, setChannelFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [emailEnabled, setEmailEnabled] = useState(true);
+  const [smsEnabled, setSmsEnabled] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
 
   useEffect(() => {
     const loadLogs = async () => {
@@ -51,6 +54,39 @@ export function AlertsPage(): JSX.Element {
   return (
     <AppLayout title="Alertas">
       <div className="alerts-page">
+        <section className="alerts-card">
+          <h2>Configuracoes de notificacao</h2>
+          <div className="filters">
+            <label>
+              <input
+                type="checkbox"
+                checked={emailEnabled}
+                onChange={(event) => setEmailEnabled(event.target.checked)}
+                data-testid="notifications.email.toggle"
+              />
+              Email (SES)
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={smsEnabled}
+                onChange={(event) => setSmsEnabled(event.target.checked)}
+                data-testid="notifications.sms.toggle"
+              />
+              SMS (Zenvia)
+            </label>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => setLastSavedAt(new Date().toLocaleString('pt-BR'))}
+              data-testid="notifications.save.button"
+            >
+              Salvar
+            </button>
+          </div>
+          {lastSavedAt && <p>Ultima gravacao: {lastSavedAt}</p>}
+        </section>
+
         <section className="alerts-card">
           <h2>Alertas recentes</h2>
           {loading && <p>Carregando...</p>}

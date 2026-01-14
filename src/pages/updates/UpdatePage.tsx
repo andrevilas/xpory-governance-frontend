@@ -135,6 +135,7 @@ export function UpdatePage(): JSX.Element {
               setUpdateResult(null);
             }}
             disabled={loading}
+            data-testid="update.policies.table"
           >
             {stacks.map((stack) => (
               <option key={stack.id} value={stack.id}>
@@ -180,10 +181,20 @@ export function UpdatePage(): JSX.Element {
             <button type="button" disabled={!canApprove} onClick={handleApprove}>
               Aprovar atualizacao
             </button>
-            <button type="button" disabled={!canExecute} onClick={() => handleExecute(true)}>
+            <button
+              type="button"
+              disabled={!canExecute}
+              onClick={() => handleExecute(true)}
+              data-testid="update.deploy.dryrun.toggle"
+            >
               Dry run
             </button>
-            <button type="button" disabled={!canExecute} onClick={() => handleExecute(false)}>
+            <button
+              type="button"
+              disabled={!canExecute}
+              onClick={() => handleExecute(false)}
+              data-testid="update.deploy.submit.button"
+            >
               Executar update
             </button>
           </div>
