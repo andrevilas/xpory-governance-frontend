@@ -29,8 +29,8 @@ test.describe('Updates', () => {
     await page.getByRole('button', { name: 'Aprovar atualizacao' }).click();
     await page.locator(selectors.update.submit).click();
     await expect(page.getByText('Status atual: success')).toBeVisible();
-    await expect(page.getByText('Pre-update')).toBeVisible();
-    await expect(page.getByText('Post-update')).toBeVisible();
-    await expect(page.getByText('OK')).toBeVisible();
+    const healthSection = page.getByRole('heading', { name: 'Indicadores de health' }).locator('..');
+    await expect(healthSection.locator('.health-item')).toContainText(['Pre-update', 'Post-update']);
+    await expect(healthSection.locator('.health-item strong')).toHaveText(['OK', 'OK']);
   });
 });

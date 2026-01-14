@@ -33,7 +33,8 @@ test.describe('Alerts', () => {
     await filters.nth(1).selectOption({ label: 'Falha' });
     const logItems = page.locator('ul.log-list > li');
     await expect(logItems).toHaveCount(1);
-    await expect(page.getByText('SMS')).toBeVisible();
-    await expect(page.getByText('FAILED')).toBeVisible();
+    const logItem = logItems.first();
+    await expect(logItem).toContainText('SMS');
+    await expect(logItem).toContainText('FAILED');
   });
 });
