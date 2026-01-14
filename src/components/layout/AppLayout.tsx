@@ -21,6 +21,7 @@ export function AppLayout({ title, children }: AppLayoutProps): JSX.Element {
           <button type="button" className="nav-item active">Dashboard</button>
           <button type="button" className="nav-item">Stacks</button>
           <button type="button" className="nav-item">Auditoria</button>
+          <button type="button" className="nav-item">Atualizacoes</button>
           <button type="button" className="nav-item">Alertas</button>
         </nav>
       </aside>
