@@ -1,9 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { AppLayout } from '../../components/layout/AppLayout';
-import { fetchAuditResults, AuditResult } from '../../services/audit';
-import { fetchInventoryStacks, fetchInventorySummary, InventoryStack, InventorySummary } from '../../services/inventory';
-import { fetchEndpoints, PortainerEndpoint } from '../../services/portainer';
+import { fetchAuditResults, fetchAuditRuns, runAudit, AuditResult, JobRun as AuditRun } from '../../services/audit';
+import {
+  fetchInventoryStacks,
+  fetchInventorySummary,
+  fetchInventoryRuns,
+  runInventory,
+  InventoryStack,
+  InventorySummary,
+  JobRun as InventoryRun,
+} from '../../services/inventory';
 import './dashboard.css';
 
 type StackRow = {
@@ -11,58 +18,70 @@ type StackRow = {
   name: string;
   status: 'ok' | 'warn';
   version: string;
-  endpointName: string;
+  endpointLabel: string;
+  instanceDrifted: boolean;
 };
 
 export function DashboardPage(): JSX.Element {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<StackRow | null>(null);
-  const [endpoints, setEndpoints] = useState<PortainerEndpoint[]>([]);
   const [stacks, setStacks] = useState<InventoryStack[]>([]);
   const [summary, setSummary] = useState<InventorySummary | null>(null);
   const [auditResults, setAuditResults] = useState<AuditResult[]>([]);
   const [auditFilter, setAuditFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [auditLoading, setAuditLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [inventoryRuns, setInventoryRuns] = useState<InventoryRun[]>([]);
+  const [auditRuns, setAuditRuns] = useState<AuditRun[]>([]);
+  const [inventoryStatusFilter, setInventoryStatusFilter] = useState('');
+  const [auditStatusFilter, setAuditStatusFilter] = useState('');
+  const [inventoryPeriodDays, setInventoryPeriodDays] = useState(7);
+  const [auditPeriodDays, setAuditPeriodDays] = useState(7);
+  const [inventoryRunsLimit, setInventoryRunsLimit] = useState(8);
+  const [auditRunsLimit, setAuditRunsLimit] = useState(8);
+  const [errorDetail, setErrorDetail] = useState<{ title: string; message: string; meta: string } | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [stacksResult, summaryResult, inventoryRunsResult, auditRunsResult] = await Promise.all([
+        fetchInventoryStacks(),
+        fetchInventorySummary(),
+        fetchInventoryRuns(inventoryRunsLimit),
+        fetchAuditRuns(auditRunsLimit),
+      ]);
+      setStacks(stacksResult);
+      setSummary(summaryResult);
+      setInventoryRuns(inventoryRunsResult);
+      setAuditRuns(auditRunsResult);
+    } catch (err) {
+      void err;
+      setError('Não foi possível carregar dados do inventário.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [endpointsResult, stacksResult, summaryResult] = await Promise.all([
-          fetchEndpoints(),
-          fetchInventoryStacks(),
-          fetchInventorySummary(),
-        ]);
-        setEndpoints(endpointsResult);
-        setStacks(stacksResult);
-        setSummary(summaryResult);
-      } catch (err) {
-        void err;
-        setError('Nao foi possivel carregar dados do inventario.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     void loadData();
-  }, []);
-
-  const endpointMap = useMemo(() => {
-    return new Map(endpoints.map((endpoint) => [endpoint.id, endpoint.name]));
-  }, [endpoints]);
+  }, [inventoryRunsLimit, auditRunsLimit]);
 
   const stackRows = useMemo<StackRow[]>(() => {
     return stacks.map((stack) => ({
       id: stack.id,
       name: stack.name,
-      status: stack.outdated ? 'warn' : 'ok',
+      status: stack.outdated || stack.instanceDrifted ? 'warn' : 'ok',
       version: stack.type ? String(stack.type) : 'N/A',
-      endpointName: endpointMap.get(stack.endpointId) ?? `Endpoint ${stack.endpointId}`,
+      endpointLabel: stack.instanceName
+        ? `${stack.instanceName} / endpoint ${stack.endpointId}`
+        : `Endpoint ${stack.endpointId}`,
+      instanceDrifted: stack.instanceDrifted,
     }));
-  }, [stacks, endpointMap]);
+  }, [stacks]);
 
   useEffect(() => {
     const loadAudit = async () => {
@@ -98,13 +117,71 @@ export function DashboardPage(): JSX.Element {
     return auditResults.filter((item) => item.image.toLowerCase().includes(needle));
   }, [auditFilter, auditResults]);
 
+  const filteredInventoryRuns = useMemo(() => {
+    const cutoff = Date.now() - inventoryPeriodDays * 24 * 60 * 60 * 1000;
+    return inventoryRuns.filter((run) => {
+      const matchesStatus = !inventoryStatusFilter || run.status === inventoryStatusFilter;
+      const matchesPeriod = new Date(run.createdAt).getTime() >= cutoff;
+      return matchesStatus && matchesPeriod;
+    });
+  }, [inventoryRuns, inventoryStatusFilter, inventoryPeriodDays]);
+
+  const filteredAuditRuns = useMemo(() => {
+    const cutoff = Date.now() - auditPeriodDays * 24 * 60 * 60 * 1000;
+    return auditRuns.filter((run) => {
+      const matchesStatus = !auditStatusFilter || run.status === auditStatusFilter;
+      const matchesPeriod = new Date(run.createdAt).getTime() >= cutoff;
+      return matchesStatus && matchesPeriod;
+    });
+  }, [auditRuns, auditStatusFilter, auditPeriodDays]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    setError(null);
+    try {
+      await runInventory();
+      await runAudit();
+      await loadData();
+    } catch (err) {
+      void err;
+      setError('Não foi possível atualizar agora. Tente novamente em instantes.');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleRefreshHistory = async () => {
+    setRefreshing(true);
+    setError(null);
+    try {
+      const [inventoryRunsResult, auditRunsResult, summaryResult, stacksResult] = await Promise.all([
+        fetchInventoryRuns(inventoryRunsLimit),
+        fetchAuditRuns(auditRunsLimit),
+        fetchInventorySummary(),
+        fetchInventoryStacks(),
+      ]);
+      setInventoryRuns(inventoryRunsResult);
+      setAuditRuns(auditRunsResult);
+      setSummary(summaryResult);
+      setStacks(stacksResult);
+    } catch (err) {
+      void err;
+      setError('Não foi possível sincronizar o histórico.');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const formatStatus = (status: string) => (status === 'success' ? 'OK' : 'Não concluído');
+  const statusClass = (status: string) => (status === 'success' ? 'ok' : 'warn');
+
   return (
     <AppLayout title="Dashboard">
       <div className="dashboard">
         <section className="card-grid" data-testid="dashboard.summary.cards">
           <div className="card">
-            <h3>Instancias</h3>
-            <div className="value">{loading ? '-' : summary?.endpoints ?? 0}</div>
+            <h3>Instâncias</h3>
+            <div className="value">{loading ? '-' : summary?.instances ?? 0}</div>
           </div>
           <div className="card">
             <h3>Stacks monitoradas</h3>
@@ -117,9 +194,171 @@ export function DashboardPage(): JSX.Element {
             <div className="value" data-testid="dashboard.kpi.updates.count">0</div>
           </div>
           <div className="card">
-            <h3>Risco elevado</h3>
+            <h3>Atenção necessária</h3>
             <div className="value" data-testid="dashboard.kpi.alerts.count">
               {loading ? '-' : summary?.outdatedStacks ?? 0}
+            </div>
+          </div>
+          <div className="card">
+            <h3>Drift entre instâncias</h3>
+            <div className="value">
+              {loading ? '-' : summary?.instanceDriftedStacks ?? 0}
+            </div>
+          </div>
+        </section>
+
+        <section className="section">
+          <h2>Operação</h2>
+          <div className="table-tools">
+            <button type="button" onClick={handleRefresh} disabled={refreshing}>
+              {refreshing ? 'Atualizando...' : 'Atualizar dados'}
+            </button>
+            <button type="button" className="secondary" onClick={handleRefreshHistory} disabled={refreshing}>
+              Sincronizar histórico
+            </button>
+          </div>
+        </section>
+
+        <section className="section">
+          <h2>Histórico de execuções</h2>
+          <div className="history-grid">
+            <div className="history-card">
+              <h3>Inventário</h3>
+              <div className="history-filters">
+                <select
+                  value={inventoryStatusFilter}
+                  onChange={(event) => setInventoryStatusFilter(event.target.value)}
+                >
+                  <option value="">Todos</option>
+                  <option value="success">Sucesso</option>
+                  <option value="failed">Não concluído</option>
+                </select>
+                <select
+                  value={inventoryPeriodDays}
+                  onChange={(event) => setInventoryPeriodDays(Number(event.target.value))}
+                >
+                  <option value={1}>24h</option>
+                  <option value={3}>3 dias</option>
+                  <option value={7}>7 dias</option>
+                  <option value={30}>30 dias</option>
+                </select>
+              </div>
+              {inventoryRuns.length === 0 ? (
+                <p>Nenhuma execução registrada.</p>
+              ) : (
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Status</th>
+                      <th>Stacks</th>
+                        <th>Horário</th>
+                      <th>Erro</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredInventoryRuns.map((run) => (
+                      <tr
+                        key={run.id}
+                        onClick={() =>
+                          run.error
+                            ? setErrorDetail({
+                                title: 'Detalhes do alerta',
+                                message: run.error,
+                                meta: `Status: ${run.status}\nStacks: ${run.stacksCount}\nHorário: ${new Date(run.createdAt).toISOString()}`,
+                              })
+                            : null
+                        }
+                        className={run.error ? 'clickable' : ''}
+                      >
+                        <td>
+                          <span className={`pill ${statusClass(run.status)}`}>{formatStatus(run.status)}</span>
+                        </td>
+                        <td>{run.stacksCount}</td>
+                        <td>{new Date(run.createdAt).toLocaleString()}</td>
+                        <td className="error-cell">{run.error ? 'Detalhes disponíveis' : '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              <div className="history-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setInventoryRunsLimit((prev) => prev + 10)}
+                >
+                  Ver mais
+                </button>
+              </div>
+            </div>
+            <div className="history-card">
+              <h3>Auditoria</h3>
+              <div className="history-filters">
+                <select
+                  value={auditStatusFilter}
+                  onChange={(event) => setAuditStatusFilter(event.target.value)}
+                >
+                  <option value="">Todos</option>
+                  <option value="success">Sucesso</option>
+                  <option value="failed">Não concluído</option>
+                </select>
+                <select
+                  value={auditPeriodDays}
+                  onChange={(event) => setAuditPeriodDays(Number(event.target.value))}
+                >
+                  <option value={1}>24h</option>
+                  <option value={3}>3 dias</option>
+                  <option value={7}>7 dias</option>
+                  <option value={30}>30 dias</option>
+                </select>
+              </div>
+              {auditRuns.length === 0 ? (
+                <p>Nenhuma execução registrada.</p>
+              ) : (
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Status</th>
+                      <th>Stacks</th>
+                        <th>Horário</th>
+                      <th>Erro</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredAuditRuns.map((run) => (
+                      <tr
+                        key={run.id}
+                        onClick={() =>
+                          run.error
+                            ? setErrorDetail({
+                                title: 'Detalhes do alerta',
+                                message: run.error,
+                                meta: `Status: ${run.status}\nStacks: ${run.stacksCount}\nHorário: ${new Date(run.createdAt).toISOString()}`,
+                              })
+                            : null
+                        }
+                        className={run.error ? 'clickable' : ''}
+                      >
+                        <td>
+                          <span className={`pill ${statusClass(run.status)}`}>{formatStatus(run.status)}</span>
+                        </td>
+                        <td>{run.stacksCount}</td>
+                        <td>{new Date(run.createdAt).toLocaleString()}</td>
+                        <td className="error-cell">{run.error ? 'Detalhes disponíveis' : '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              <div className="history-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setAuditRunsLimit((prev) => prev + 10)}
+                >
+                  Ver mais
+                </button>
+              </div>
             </div>
           </div>
         </section>
@@ -143,14 +382,14 @@ export function DashboardPage(): JSX.Element {
                 <th>Endpoint</th>
                 <th>Status</th>
                 <th>Tipo</th>
-                <th>Acoes</th>
+                <th>Ações</th>
               </tr>
             </thead>
             <tbody>
               {filteredStacks.map((stack) => (
                 <tr key={stack.id}>
                   <td>{stack.name}</td>
-                  <td>{stack.endpointName}</td>
+                  <td>{stack.endpointLabel}</td>
                   <td>
                     <span className={`badge ${stack.status}`}>
                       {stack.status === 'ok' ? 'OK' : 'Atenção'}
@@ -170,15 +409,16 @@ export function DashboardPage(): JSX.Element {
 
         <section className="section">
           <h2>Auditoria</h2>
-          <p>Ultima auditoria: {summary?.lastAuditAt ?? 'pendente'}</p>
+          <p>Última auditoria: {summary?.lastAuditAt ?? 'pendente'}</p>
           <p>Stacks desatualizadas: {summary?.outdatedStacks ?? 0}</p>
+          <p>Stacks com drift entre instâncias: {summary?.instanceDriftedStacks ?? 0}</p>
         </section>
 
         <section className="section">
-          <h2>Guia rapido operacional</h2>
+          <h2>Guia rápido operacional</h2>
           <ol className="onboarding">
-            <li>Revise o inventario e identifique stacks desatualizadas.</li>
-            <li>Abra a tela de Atualizacoes e execute o dry-run.</li>
+            <li>Revise o inventário e identifique stacks desatualizadas.</li>
+            <li>Abra a tela de Atualizações e execute o dry-run.</li>
             <li>Aprove o update e acompanhe os health-checks.</li>
             <li>Monitore alertas e logs para validar o resultado.</li>
           </ol>
@@ -194,10 +434,11 @@ export function DashboardPage(): JSX.Element {
                 Fechar
               </button>
             </header>
-            <p>Endpoint: {selected.endpointName}</p>
+            <p>Endpoint: {selected.endpointLabel}</p>
             <p>Status atual: {selected.status === 'ok' ? 'OK' : 'Atenção'}</p>
             <p>Tipo da stack: {selected.version}</p>
-            <p>Ultima auditoria: {summary?.lastAuditAt ?? 'pendente'}</p>
+            <p>Última auditoria: {summary?.lastAuditAt ?? 'pendente'}</p>
+            <p>Drift entre instâncias: {selected.instanceDrifted ? 'Sim' : 'Não'}</p>
 
             <section className="audit-results">
               <h4>Auditoria da stack</h4>
@@ -215,14 +456,14 @@ export function DashboardPage(): JSX.Element {
               {auditLoading ? (
                 <p>Carregando auditoria...</p>
               ) : filteredAuditResults.length === 0 ? (
-                <p>Nenhum resultado disponivel.</p>
+                <p>Nenhum resultado disponível.</p>
               ) : (
                 <table data-testid="audit.events.table">
                   <thead>
                     <tr>
                       <th>Imagem</th>
                       <th>Atual</th>
-                      <th>Ultima</th>
+                      <th>Última</th>
                       <th>Status</th>
                     </tr>
                   </thead>
@@ -232,7 +473,7 @@ export function DashboardPage(): JSX.Element {
                         <td>{item.image}</td>
                         <td>{item.currentTag}</td>
                         <td>{item.latestTag}</td>
-                        <td>{item.updateAvailable ? 'Update' : 'OK'}</td>
+                        <td>{item.updateAvailable ? 'Atualização' : 'OK'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -240,6 +481,47 @@ export function DashboardPage(): JSX.Element {
               )}
             </section>
           </div>
+        </div>
+      )}
+
+      {errorDetail && (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal">
+            <header>
+              <h3>{errorDetail.title}</h3>
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(errorDetail.message);
+                    setToastMessage('Mensagem copiada');
+                  }}
+                >
+                  Copiar detalhe
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${errorDetail.message}\n\n${errorDetail.meta}`);
+                    setToastMessage('Detalhes copiados');
+                  }}
+                >
+                  Copiar tudo
+                </button>
+                <button type="button" onClick={() => setErrorDetail(null)}>
+                  Fechar
+                </button>
+              </div>
+            </header>
+            <pre className="error-detail">{errorDetail.message}</pre>
+            <pre className="error-detail meta">{errorDetail.meta}</pre>
+          </div>
+        </div>
+      )}
+
+      {toastMessage && (
+        <div className="toast" role="status" onAnimationEnd={() => setToastMessage(null)}>
+          {toastMessage}
         </div>
       )}
     </AppLayout>

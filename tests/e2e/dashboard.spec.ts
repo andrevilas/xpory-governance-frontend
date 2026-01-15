@@ -43,6 +43,6 @@ test.describe('Dashboard', () => {
     await expect(page.locator(selectors.audit.table)).toBeVisible();
     await expect(page.getByText('xpory/api')).toBeVisible();
     await page.fill(selectors.audit.filter, 'frontend');
-    await expect(page.getByText('Nenhum resultado disponivel.')).toBeVisible();
+    await expect(page.getByText('Nenhum resultado disponível.')).toBeVisible();
   });
 });

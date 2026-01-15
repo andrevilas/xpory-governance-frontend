@@ -1,6 +1,7 @@
 import { api } from './api';
 
 export type UpdateResponse = {
+  instanceId: string | null;
   stackId: number;
   endpointId: number;
   dryRun: boolean;
@@ -9,14 +10,19 @@ export type UpdateResponse = {
   rollbackApplied: boolean;
 };
 
-export async function fetchCompose(stackId: number, endpointId: number): Promise<string> {
+export async function fetchCompose(
+  instanceId: string | null,
+  stackId: number,
+  endpointId: number,
+): Promise<string> {
   const response = await api.get<string>(`/portainer/stacks/${stackId}/compose`, {
-    params: { endpointId },
+    params: { endpointId, instanceId: instanceId ?? undefined },
   });
   return response.data;
 }
 
 export async function executeUpdate(
+  instanceId: string | null,
   stackId: number,
   endpointId: number,
   composeYaml: string,
@@ -27,7 +33,7 @@ export async function executeUpdate(
     dryRun,
     endpointId,
   }, {
-    params: { endpointId },
+    params: { endpointId, instanceId: instanceId ?? undefined },
   });
   return response.data;
 }

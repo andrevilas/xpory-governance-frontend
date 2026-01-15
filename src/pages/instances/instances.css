@@ -1,0 +1,126 @@
+.instances-page {
+  display: grid;
+  gap: 24px;
+}
+
+.instances-page .card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.instances-page .form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.instances-page label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+  color: #334155;
+}
+
+.instances-page input {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: #f8fafc;
+}
+
+.instances-page select {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: #f8fafc;
+}
+
+.instances-page label.checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.instances-page .form-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.instances-page .form-actions button {
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: none;
+  background: #0f172a;
+  color: #fff;
+  cursor: pointer;
+}
+
+.instances-page .form-actions button.secondary {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.instances-page table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+.instances-page th,
+.instances-page td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 14px;
+}
+
+.instances-page .actions {
+  display: flex;
+  gap: 8px;
+}
+
+.instances-page .actions button {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: none;
+  background: #0f172a;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.instances-page .actions .danger {
+  background: #b91c1c;
+}
+
+.instances-page .table-tools {
+  display: flex;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.instances-page tr.selected {
+  background: #f1f5f9;
+}
+
+.instances-page .details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.instances-page .details-grid strong {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 4px;
+}

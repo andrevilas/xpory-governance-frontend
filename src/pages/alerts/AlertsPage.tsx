@@ -33,7 +33,7 @@ export function AlertsPage(): JSX.Element {
         setLogs(data);
       } catch (err) {
         void err;
-        setError('Nao foi possivel carregar logs.');
+        setError('Não foi possível carregar logs.');
       } finally {
         setLoading(false);
       }
@@ -45,7 +45,7 @@ export function AlertsPage(): JSX.Element {
   const recentAlerts = useMemo(() => {
     return logs.slice(0, 5).map((log) => ({
       id: log.id,
-      title: `${log.channel.toUpperCase()} ${log.status.toUpperCase()} - ${log.subject ?? 'Notificacao'}`,
+      title: `${log.channel.toUpperCase()} ${log.status.toUpperCase()} - ${log.subject ?? 'Notificação'}`,
       severity: severityMap[log.status] ?? 'low',
       timestamp: new Date(log.createdAt).toLocaleString('pt-BR'),
     }));
@@ -55,7 +55,7 @@ export function AlertsPage(): JSX.Element {
     <AppLayout title="Alertas">
       <div className="alerts-page">
         <section className="alerts-card">
-          <h2>Configuracoes de notificacao</h2>
+          <h2>Configurações de notificação</h2>
           <div className="filters">
             <label>
               <input
@@ -84,7 +84,7 @@ export function AlertsPage(): JSX.Element {
               Salvar
             </button>
           </div>
-          {lastSavedAt && <p>Ultima gravacao: {lastSavedAt}</p>}
+          {lastSavedAt && <p>Última gravação: {lastSavedAt}</p>}
         </section>
 
         <section className="alerts-card">
@@ -92,7 +92,7 @@ export function AlertsPage(): JSX.Element {
           {loading && <p>Carregando...</p>}
           {error && <p className="inline-alert">{error}</p>}
           {!loading && recentAlerts.length === 0 ? (
-            <p>Nenhum alerta disponivel.</p>
+            <p>Nenhum alerta disponível.</p>
           ) : (
             <ul>
               {recentAlerts.map((alert) => (
@@ -132,7 +132,7 @@ export function AlertsPage(): JSX.Element {
             <ul className="log-list">
               {logs.map((log) => (
                 <li key={log.id}>
-                  <strong>{log.subject ?? 'Notificacao'}</strong>
+                  <strong>{log.subject ?? 'Notificação'}</strong>
                   <span>{log.channel.toUpperCase()}</span>
                   <span className={`severity ${severityMap[log.status] ?? 'low'}`}>
                     {log.status.toUpperCase()}

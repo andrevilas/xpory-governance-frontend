@@ -7,6 +7,7 @@ export type PortainerEndpoint = {
 };
 
 export type PortainerStack = {
+  instanceId: string;
   id: number;
   name: string;
   endpointId: number;
@@ -14,14 +15,16 @@ export type PortainerStack = {
   type?: number;
 };
 
-export async function fetchEndpoints(): Promise<PortainerEndpoint[]> {
-  const response = await api.get<PortainerEndpoint[]>('/portainer/endpoints');
+export async function fetchEndpoints(instanceId?: string): Promise<PortainerEndpoint[]> {
+  const response = await api.get<PortainerEndpoint[]>('/portainer/endpoints', {
+    params: instanceId ? { instanceId } : undefined,
+  });
   return response.data;
 }
 
-export async function fetchStacks(endpointId?: number): Promise<PortainerStack[]> {
+export async function fetchStacks(instanceId?: string, endpointId?: number): Promise<PortainerStack[]> {
   const response = await api.get<PortainerStack[]>('/portainer/stacks', {
-    params: endpointId ? { endpointId } : undefined,
+    params: endpointId || instanceId ? { endpointId, instanceId } : undefined,
   });
   return response.data;
 }

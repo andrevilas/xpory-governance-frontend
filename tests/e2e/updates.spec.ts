@@ -17,7 +17,7 @@ test.describe('Updates', () => {
     await expect(page.locator(selectors.update.dryRun)).toBeDisabled();
     await expect(page.locator(selectors.update.submit)).toBeDisabled();
 
-    await page.getByRole('button', { name: 'Aprovar atualizacao' }).click();
+    await page.getByRole('button', { name: 'Aprovar atualização' }).click();
     await expect(page.locator(selectors.update.dryRun)).toBeEnabled();
     await expect(page.locator(selectors.update.submit)).toBeEnabled();
   });
@@ -26,7 +26,7 @@ test.describe('Updates', () => {
     await login(page);
     await page.goto('/app/updates');
 
-    await page.getByRole('button', { name: 'Aprovar atualizacao' }).click();
+    await page.getByRole('button', { name: 'Aprovar atualização' }).click();
     await page.locator(selectors.update.submit).click();
     await expect(page.getByText('Status atual: success')).toBeVisible();
     const healthSection = page.getByRole('heading', { name: 'Indicadores de health' }).locator('..');

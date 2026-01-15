@@ -7,8 +7,10 @@ export const fixtures = {
   inventory: {
     summary: {
       stacks: 2,
+      instances: 1,
       endpoints: 1,
       outdatedStacks: 1,
+      instanceDriftedStacks: 1,
       lastAuditAt: '2024-01-10T12:00:00Z',
     },
     stacks: [
@@ -21,6 +23,8 @@ export const fixtures = {
         type: 1,
         lastSnapshotAt: null,
         outdated: true,
+        drifted: false,
+        instanceDrifted: true,
       },
       {
         id: 'stack-2',
@@ -31,6 +35,8 @@ export const fixtures = {
         type: 1,
         lastSnapshotAt: null,
         outdated: false,
+        drifted: false,
+        instanceDrifted: false,
       },
     ],
   },

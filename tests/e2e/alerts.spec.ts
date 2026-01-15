@@ -21,7 +21,7 @@ test.describe('Alerts', () => {
     await expect(page.locator(selectors.notifications.save)).toBeVisible();
     await page.locator(selectors.notifications.save).click();
 
-    await expect(page.getByText('Ultima gravacao')).toBeVisible();
+    await expect(page.getByText('Última gravação')).toBeVisible();
   });
 
   test('filtra logs por canal e status', async ({ page }) => {

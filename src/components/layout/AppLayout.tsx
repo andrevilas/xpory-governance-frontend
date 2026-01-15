@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../../context/auth/useAuth';
 import './app-layout.css';
@@ -10,6 +10,7 @@ type AppLayoutProps = {
 
 export function AppLayout({ title, children }: AppLayoutProps): JSX.Element {
   const navigate = useNavigate();
+  const location = useLocation();
   const { logout } = useAuth();
 
   const handleLogout = () => {
@@ -29,11 +30,34 @@ export function AppLayout({ title, children }: AppLayoutProps): JSX.Element {
         </div>
 
         <nav className="nav">
-          <button type="button" className="nav-item active">Dashboard</button>
-          <button type="button" className="nav-item">Stacks</button>
-          <button type="button" className="nav-item">Auditoria</button>
-          <button type="button" className="nav-item">Atualizacoes</button>
-          <button type="button" className="nav-item">Alertas</button>
+          <button
+            type="button"
+            className={`nav-item${location.pathname.includes('/app/dashboard') ? ' active' : ''}`}
+            onClick={() => navigate('/app/dashboard')}
+          >
+            Dashboard
+          </button>
+          <button
+            type="button"
+            className={`nav-item${location.pathname.includes('/app/instances') ? ' active' : ''}`}
+            onClick={() => navigate('/app/instances')}
+          >
+            Instâncias
+          </button>
+          <button
+            type="button"
+            className={`nav-item${location.pathname.includes('/app/updates') ? ' active' : ''}`}
+            onClick={() => navigate('/app/updates')}
+          >
+            Atualizações
+          </button>
+          <button
+            type="button"
+            className={`nav-item${location.pathname.includes('/app/alerts') ? ' active' : ''}`}
+            onClick={() => navigate('/app/alerts')}
+          >
+            Alertas
+          </button>
         </nav>
       </aside>
 

@@ -33,11 +33,15 @@ export function UpdatePage(): JSX.Element {
       setError(null);
       try {
         const result = await fetchInventoryStacks();
-        setStacks(result);
-        setSelected(result[0] ?? null);
+        const filtered = result.filter(
+          (stack) => !(stack.instanceName ?? '').toLowerCase().includes('seed'),
+        );
+        const nextStacks = filtered.length > 0 ? filtered : result;
+        setStacks(nextStacks);
+        setSelected(nextStacks[0] ?? null);
       } catch (err) {
         void err;
-        setError('Nao foi possivel carregar stacks.');
+        setError('Não foi possível carregar stacks.');
       } finally {
         setLoading(false);
       }
@@ -52,12 +56,12 @@ export function UpdatePage(): JSX.Element {
         return;
       }
       try {
-        const compose = await fetchCompose(selected.portainerStackId, selected.endpointId);
+        const compose = await fetchCompose(selected.instanceId, selected.portainerStackId, selected.endpointId);
         setCurrentCompose(compose);
         setNextCompose(compose);
       } catch (err) {
         void err;
-        setError('Nao foi possivel carregar compose atual.');
+        setError('Não foi possível carregar compose atual.');
       }
     };
 
@@ -102,6 +106,7 @@ export function UpdatePage(): JSX.Element {
     setError(null);
     try {
       const result = await executeUpdate(
+        selected.instanceId,
         selected.portainerStackId,
         selected.endpointId,
         nextCompose,
@@ -121,10 +126,10 @@ export function UpdatePage(): JSX.Element {
   };
 
   return (
-    <AppLayout title="Atualizacoes">
+    <AppLayout title="Atualizações">
       <div className="update-page">
         <section className="update-card">
-          <h2>Selecao de stack</h2>
+          <h2>Seleção de stack</h2>
           {error && <div className="inline-alert">{error}</div>}
           <select
             value={selected?.id ?? ''}
@@ -139,7 +144,7 @@ export function UpdatePage(): JSX.Element {
           >
             {stacks.map((stack) => (
               <option key={stack.id} value={stack.id}>
-                {stack.name} (endpoint {stack.endpointId})
+                {stack.name} ({stack.instanceName ?? 'Instância'} / endpoint {stack.endpointId})
               </option>
             ))}
           </select>
@@ -176,10 +181,10 @@ export function UpdatePage(): JSX.Element {
         </section>
 
         <section className="update-card">
-          <h2>Fluxo de aprovacao</h2>
+          <h2>Fluxo de aprovação</h2>
           <div className="actions">
             <button type="button" disabled={!canApprove} onClick={handleApprove}>
-              Aprovar atualizacao
+              Aprovar atualização
             </button>
             <button
               type="button"

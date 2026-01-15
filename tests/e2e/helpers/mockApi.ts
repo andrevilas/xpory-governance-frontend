@@ -43,6 +43,14 @@ export async function setupApiMocks(page: Page) {
       return route.fulfill(jsonResponse(fixtures.inventory.stacks));
     }
 
+    if (path === '/api/inventory/runs' && method === 'GET') {
+      return route.fulfill(jsonResponse([]));
+    }
+
+    if (path === '/api/audit/runs' && method === 'GET') {
+      return route.fulfill(jsonResponse([]));
+    }
+
     if (path === '/api/portainer/endpoints' && method === 'GET') {
       return route.fulfill(jsonResponse(fixtures.portainer.endpoints));
     }
