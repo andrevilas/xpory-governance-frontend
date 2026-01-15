@@ -6,6 +6,7 @@ export type InventorySummary = {
   endpoints: number;
   outdatedStacks: number;
   instanceDriftedStacks: number;
+  digestDriftedStacks: number;
   lastAuditAt: string | null;
 };
 
@@ -22,6 +23,7 @@ export type InventoryStack = {
   outdated: boolean;
   drifted: boolean;
   instanceDrifted: boolean;
+  digestDrifted: boolean;
 };
 
 export async function fetchInventorySummary(): Promise<InventorySummary> {

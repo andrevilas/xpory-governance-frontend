@@ -11,6 +11,13 @@ import {
   InventorySummary,
   JobRun as InventoryRun,
 } from '../../services/inventory';
+import {
+  fetchStackRegistryImages,
+  runRegistry,
+  updateRegistryStack,
+  RegistryImageState,
+  RegistryUpdateResult,
+} from '../../services/registry';
 import './dashboard.css';
 
 type StackRow = {
@@ -20,6 +27,7 @@ type StackRow = {
   version: string;
   endpointLabel: string;
   instanceDrifted: boolean;
+  digestDrifted: boolean;
 };
 
 export function DashboardPage(): JSX.Element {
@@ -40,6 +48,14 @@ export function DashboardPage(): JSX.Element {
   const [auditPeriodDays, setAuditPeriodDays] = useState(7);
   const [inventoryRunsLimit, setInventoryRunsLimit] = useState(8);
   const [auditRunsLimit, setAuditRunsLimit] = useState(8);
+  const [digestOnlyFilter, setDigestOnlyFilter] = useState(false);
+  const [registryImages, setRegistryImages] = useState<RegistryImageState[]>([]);
+  const [registryLoading, setRegistryLoading] = useState(false);
+  const [registryError, setRegistryError] = useState<string | null>(null);
+  const [registryRunLoading, setRegistryRunLoading] = useState(false);
+  const [registryUpdateDryRun, setRegistryUpdateDryRun] = useState(true);
+  const [registryUpdateLoading, setRegistryUpdateLoading] = useState(false);
+  const [registryUpdateResult, setRegistryUpdateResult] = useState<RegistryUpdateResult | null>(null);
   const [errorDetail, setErrorDetail] = useState<{ title: string; message: string; meta: string } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -74,12 +90,13 @@ export function DashboardPage(): JSX.Element {
     return stacks.map((stack) => ({
       id: stack.id,
       name: stack.name,
-      status: stack.outdated || stack.instanceDrifted ? 'warn' : 'ok',
+      status: stack.outdated || stack.instanceDrifted || stack.digestDrifted ? 'warn' : 'ok',
       version: stack.type ? String(stack.type) : 'N/A',
       endpointLabel: stack.instanceName
         ? `${stack.instanceName} / endpoint ${stack.endpointId}`
         : `Endpoint ${stack.endpointId}`,
       instanceDrifted: stack.instanceDrifted,
+      digestDrifted: stack.digestDrifted,
     }));
   }, [stacks]);
 
@@ -104,9 +121,37 @@ export function DashboardPage(): JSX.Element {
     void loadAudit();
   }, [selected]);
 
+  useEffect(() => {
+    const loadRegistry = async () => {
+      if (!selected) {
+        setRegistryImages([]);
+        setRegistryError(null);
+        setRegistryUpdateResult(null);
+        return;
+      }
+      setRegistryLoading(true);
+      setRegistryError(null);
+      try {
+        const result = await fetchStackRegistryImages(selected.id);
+        setRegistryImages(result);
+      } catch (err) {
+        void err;
+        setRegistryError('Nao foi possivel carregar detalhes de digest.');
+        setRegistryImages([]);
+      } finally {
+        setRegistryLoading(false);
+      }
+    };
+
+    void loadRegistry();
+  }, [selected]);
+
   const filteredStacks = useMemo(
-    () => stackRows.filter((row) => row.name.toLowerCase().includes(search.toLowerCase())),
-    [search, stackRows]
+    () => {
+      const filtered = stackRows.filter((row) => row.name.toLowerCase().includes(search.toLowerCase()));
+      return digestOnlyFilter ? filtered.filter((row) => row.digestDrifted) : filtered;
+    },
+    [search, stackRows, digestOnlyFilter]
   );
 
   const filteredAuditResults = useMemo(() => {
@@ -172,6 +217,45 @@ export function DashboardPage(): JSX.Element {
     }
   };
 
+  const handleRegistryRun = async () => {
+    setRegistryRunLoading(true);
+    setError(null);
+    try {
+      await runRegistry();
+      await loadData();
+      if (selected) {
+        const result = await fetchStackRegistryImages(selected.id);
+        setRegistryImages(result);
+      }
+      setToastMessage('Registry watcher atualizado');
+    } catch (err) {
+      void err;
+      setError('Nao foi possivel atualizar o registry watcher.');
+    } finally {
+      setRegistryRunLoading(false);
+    }
+  };
+
+  const handleRegistryUpdate = async () => {
+    if (!selected) {
+      return;
+    }
+    setRegistryUpdateLoading(true);
+    setRegistryUpdateResult(null);
+    setRegistryError(null);
+    try {
+      const result = await updateRegistryStack(selected.id, { dryRun: registryUpdateDryRun });
+      setRegistryUpdateResult(result);
+      const refreshed = await fetchStackRegistryImages(selected.id);
+      setRegistryImages(refreshed);
+    } catch (err) {
+      void err;
+      setRegistryError('Falha ao executar update por digest.');
+    } finally {
+      setRegistryUpdateLoading(false);
+    }
+  };
+
   const formatStatus = (status: string) => (status === 'success' ? 'OK' : 'Não concluído');
   const statusClass = (status: string) => (status === 'success' ? 'ok' : 'warn');
 
@@ -205,6 +289,12 @@ export function DashboardPage(): JSX.Element {
               {loading ? '-' : summary?.instanceDriftedStacks ?? 0}
             </div>
           </div>
+          <div className="card">
+            <h3>Drift de digest</h3>
+            <div className="value">
+              {loading ? '-' : summary?.digestDriftedStacks ?? 0}
+            </div>
+          </div>
         </section>
 
         <section className="section">
@@ -215,6 +305,9 @@ export function DashboardPage(): JSX.Element {
             </button>
             <button type="button" className="secondary" onClick={handleRefreshHistory} disabled={refreshing}>
               Sincronizar histórico
+            </button>
+            <button type="button" className="secondary" onClick={handleRegistryRun} disabled={registryRunLoading}>
+              {registryRunLoading ? 'Atualizando registry...' : 'Atualizar registry watcher'}
             </button>
           </div>
         </section>
@@ -374,6 +467,14 @@ export function DashboardPage(): JSX.Element {
               onChange={(event) => setSearch(event.target.value)}
               data-testid="inventory.filter.status.select"
             />
+            <label className="filter-toggle">
+              <input
+                type="checkbox"
+                checked={digestOnlyFilter}
+                onChange={(event) => setDigestOnlyFilter(event.target.checked)}
+              />
+              Somente digest divergente
+            </label>
           </div>
           <table className="table" data-testid="inventory.list.table">
             <thead>
@@ -381,6 +482,7 @@ export function DashboardPage(): JSX.Element {
                 <th>Nome</th>
                 <th>Endpoint</th>
                 <th>Status</th>
+                <th>Digest</th>
                 <th>Tipo</th>
                 <th>Ações</th>
               </tr>
@@ -393,6 +495,11 @@ export function DashboardPage(): JSX.Element {
                   <td>
                     <span className={`badge ${stack.status}`}>
                       {stack.status === 'ok' ? 'OK' : 'Atenção'}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`badge ${stack.digestDrifted ? 'warn' : 'ok'}`}>
+                      {stack.digestDrifted ? 'Drift' : 'OK'}
                     </span>
                   </td>
                   <td>{stack.version}</td>
@@ -412,6 +519,7 @@ export function DashboardPage(): JSX.Element {
           <p>Última auditoria: {summary?.lastAuditAt ?? 'pendente'}</p>
           <p>Stacks desatualizadas: {summary?.outdatedStacks ?? 0}</p>
           <p>Stacks com drift entre instâncias: {summary?.instanceDriftedStacks ?? 0}</p>
+          <p>Stacks com drift de digest: {summary?.digestDriftedStacks ?? 0}</p>
         </section>
 
         <section className="section">
@@ -439,6 +547,7 @@ export function DashboardPage(): JSX.Element {
             <p>Tipo da stack: {selected.version}</p>
             <p>Última auditoria: {summary?.lastAuditAt ?? 'pendente'}</p>
             <p>Drift entre instâncias: {selected.instanceDrifted ? 'Sim' : 'Não'}</p>
+            <p>Drift de digest: {selected.digestDrifted ? 'Sim' : 'Não'}</p>
 
             <section className="audit-results">
               <h4>Auditoria da stack</h4>
@@ -474,6 +583,62 @@ export function DashboardPage(): JSX.Element {
                         <td>{item.currentTag}</td>
                         <td>{item.latestTag}</td>
                         <td>{item.updateAvailable ? 'Atualização' : 'OK'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </section>
+
+            <section className="registry-results">
+              <h4>Digest registry</h4>
+              <div className="table-tools">
+                <label className="filter-toggle">
+                  <input
+                    type="checkbox"
+                    checked={registryUpdateDryRun}
+                    onChange={(event) => setRegistryUpdateDryRun(event.target.checked)}
+                  />
+                  Dry-run
+                </label>
+                <button type="button" onClick={handleRegistryUpdate} disabled={registryUpdateLoading}>
+                  {registryUpdateLoading ? 'Executando...' : 'Atualizar por digest'}
+                </button>
+              </div>
+              {registryError && <div className="inline-alert">{registryError}</div>}
+              {registryUpdateResult && (
+                <p className="helper-text">
+                  Resultado: {registryUpdateResult.status}{' '}
+                  {registryUpdateResult.rollbackApplied ? '(rollback aplicado)' : ''}
+                </p>
+              )}
+              {registryLoading ? (
+                <p>Carregando digest...</p>
+              ) : registryImages.length === 0 ? (
+                <p>Nenhuma imagem registrada.</p>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Imagem</th>
+                      <th>Tag</th>
+                      <th>Digest local</th>
+                      <th>Digest registry</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {registryImages.map((image) => (
+                      <tr key={`${image.image}:${image.tag}`}>
+                        <td>{image.image}</td>
+                        <td>{image.tag}</td>
+                        <td>{image.digest ?? 'n/a'}</td>
+                        <td>{image.registryDigest ?? 'n/a'}</td>
+                        <td>
+                          <span className={`badge ${image.drifted ? 'warn' : 'ok'}`}>
+                            {image.drifted ? 'Drift' : 'OK'}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
