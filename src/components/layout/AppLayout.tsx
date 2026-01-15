@@ -46,6 +46,13 @@ export function AppLayout({ title, children }: AppLayoutProps): JSX.Element {
           </button>
           <button
             type="button"
+            className={`nav-item${location.pathname.includes('/app/stacks') ? ' active' : ''}`}
+            onClick={() => navigate('/app/stacks')}
+          >
+            Stacks Globais
+          </button>
+          <button
+            type="button"
             className={`nav-item${location.pathname.includes('/app/updates') ? ' active' : ''}`}
             onClick={() => navigate('/app/updates')}
           >
