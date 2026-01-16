@@ -55,6 +55,7 @@ export function UpdatePage(): JSX.Element {
       if (!selected) {
         return;
       }
+      setError(null);
       try {
         const compose = await fetchCompose(selected.instanceId, selected.portainerStackId, selected.endpointId);
         setCurrentCompose(compose);
@@ -138,6 +139,7 @@ export function UpdatePage(): JSX.Element {
               setSelected(next);
               setStatus('pending');
               setUpdateResult(null);
+              setError(null);
             }}
             disabled={loading}
             data-testid="update.policies.table"

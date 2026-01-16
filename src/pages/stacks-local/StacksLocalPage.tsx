@@ -619,10 +619,23 @@ export function StacksLocalPage(): JSX.Element {
                     <td>{formatDate(stack.updatedAt)}</td>
                     <td>
                       <div className="actions">
-                        <button type="button" onClick={() => startEdit(stack)}>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            startEdit(stack);
+                          }}
+                        >
                           Editar
                         </button>
-                        <button type="button" className="danger" onClick={() => handleDelete(stack)}>
+                        <button
+                          type="button"
+                          className="danger"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleDelete(stack);
+                          }}
+                        >
                           Remover
                         </button>
                       </div>
