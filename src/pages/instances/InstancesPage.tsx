@@ -295,13 +295,23 @@ export function InstancesPage(): JSX.Element {
                     <td>{instance.baseUrl}</td>
                     <td>{new Date(instance.updatedAt).toLocaleString()}</td>
                     <td className="actions">
-                      <button type="button" onClick={() => startEdit(instance)} disabled={saving}>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          startEdit(instance);
+                        }}
+                        disabled={saving}
+                      >
                         Editar
                       </button>
                       <button
                         type="button"
                         className="danger"
-                        onClick={() => handleDelete(instance)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleDelete(instance);
+                        }}
                         disabled={saving}
                       >
                         Remover
