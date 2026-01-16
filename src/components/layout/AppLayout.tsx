@@ -70,7 +70,7 @@ export function AppLayout({ title, children }: AppLayoutProps): JSX.Element {
             className={`nav-item${location.pathname.includes('/app/notifications') ? ' active' : ''}`}
             onClick={() => navigate('/app/notifications')}
           >
-            Notificacoes
+            Notificações
           </button>
         </nav>
       </aside>

@@ -9,7 +9,7 @@ test.describe('Alerts', () => {
     await setupApiMocks(page);
   });
 
-  test('toggle notificacoes', async ({ page }) => {
+  test('toggle notificações', async ({ page }) => {
     await login(page);
     await page.goto('/app/alerts');
 

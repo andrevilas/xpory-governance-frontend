@@ -158,7 +158,7 @@ export function StacksLocalPage(): JSX.Element {
       setSelectedId((prev) => prev ?? result[0]?.id ?? null);
     } catch (err) {
       void err;
-      setError('Nao foi possivel carregar stacks locais.');
+      setError('Não foi possível carregar stacks locais.');
     } finally {
       setLoading(false);
     }
@@ -172,7 +172,7 @@ export function StacksLocalPage(): JSX.Element {
       setSelectedInstanceId((prev) => prev ?? result[0]?.id ?? null);
     } catch (err) {
       void err;
-      setInstancesError('Nao foi possivel carregar instancias.');
+      setInstancesError('Não foi possível carregar instâncias.');
     }
   };
 
@@ -198,7 +198,7 @@ export function StacksLocalPage(): JSX.Element {
       setVersions(result);
     } catch (err) {
       void err;
-      setVersionsError('Falha ao carregar historico de versoes.');
+      setVersionsError('Falha ao carregar histórico de versões.');
     } finally {
       setVersionsLoading(false);
     }
@@ -433,7 +433,7 @@ export function StacksLocalPage(): JSX.Element {
       return;
     }
     if (!versionForm.version.trim()) {
-      setVersionsError('Informe a versao.');
+      setVersionsError('Informe a versão.');
       return;
     }
     setVersionsLoading(true);
@@ -452,7 +452,7 @@ export function StacksLocalPage(): JSX.Element {
         typeof (err as { response?: { data?: { message?: string } } })?.response?.data?.message === 'string'
           ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
           : null;
-      setVersionsError(message ?? 'Falha ao salvar versao.');
+      setVersionsError(message ?? 'Falha ao salvar versão.');
     } finally {
       setVersionsLoading(false);
     }
@@ -475,7 +475,7 @@ export function StacksLocalPage(): JSX.Element {
 
   const handlePreview = async () => {
     if (!selectedStack || deploySelection.length === 0) {
-      setVariablesError('Selecione instancias para preview.');
+      setVariablesError('Selecione instâncias para preview.');
       return;
     }
     setPreviewLoading(true);
@@ -495,7 +495,7 @@ export function StacksLocalPage(): JSX.Element {
 
   const handleDeploy = async () => {
     if (!selectedStack || deploySelection.length === 0) {
-      setVariablesError('Selecione instancias para deploy.');
+      setVariablesError('Selecione instâncias para deploy.');
       return;
     }
     setDeployLoading(true);
@@ -532,7 +532,7 @@ export function StacksLocalPage(): JSX.Element {
               />
             </label>
             <label>
-              Versao atual
+              Versão atual
               <input
                 value={form.currentVersion}
                 onChange={(event) => setForm((prev) => ({ ...prev, currentVersion: event.target.value }))}
@@ -579,7 +579,7 @@ export function StacksLocalPage(): JSX.Element {
                 placeholder="Buscar por nome ou descricao"
               />
               <select value={versionFilter} onChange={(event) => setVersionFilter(event.target.value)}>
-                <option value="">Todas as versoes</option>
+                <option value="">Todas as versões</option>
                 {currentVersionOptions.map((version) => (
                   <option key={version} value={version}>
                     {version}
@@ -597,7 +597,7 @@ export function StacksLocalPage(): JSX.Element {
               <thead>
                 <tr>
                   <th>Stack</th>
-                  <th>Versao atual</th>
+                  <th>Versão atual</th>
                   <th>Atualizado em</th>
                   <th>Acoes</th>
                 </tr>
@@ -643,7 +643,7 @@ export function StacksLocalPage(): JSX.Element {
                 <span>{selectedStack.id}</span>
               </div>
               <div>
-                <strong>Versao atual</strong>
+                <strong>Versão atual</strong>
                 <span>{selectedStack.currentVersion ?? 'n/a'}</span>
               </div>
               <div>
@@ -689,7 +689,7 @@ export function StacksLocalPage(): JSX.Element {
                   <input
                     value={variableForm.description}
                     onChange={(event) => setVariableForm((prev) => ({ ...prev, description: event.target.value }))}
-                    placeholder="Versao da imagem"
+                    placeholder="Versão da imagem"
                   />
                 </label>
                 <label className="inline">
@@ -728,7 +728,7 @@ export function StacksLocalPage(): JSX.Element {
                           <div className="stack-name">{variable.variableName}</div>
                           <div className="stack-description">{variable.description ?? 'Sem descricao'}</div>
                         </td>
-                        <td>{variable.isRequired ? 'Sim' : 'Nao'}</td>
+                        <td>{variable.isRequired ? 'Sim' : 'Não'}</td>
                         <td>{variable.defaultValue ?? 'n/a'}</td>
                         <td>{formatDate(variable.updatedAt)}</td>
                         <td>
@@ -811,7 +811,7 @@ export function StacksLocalPage(): JSX.Element {
                         <div className="stack-name">{variable.variableName}</div>
                         <div className="stack-description">{variable.description ?? 'Sem descricao'}</div>
                       </td>
-                      <td>{variable.isRequired ? 'Sim' : 'Nao'}</td>
+                      <td>{variable.isRequired ? 'Sim' : 'Não'}</td>
                       <td>{variable.defaultValue ?? 'n/a'}</td>
                       <td>
                         <input
@@ -858,21 +858,21 @@ export function StacksLocalPage(): JSX.Element {
           )}
           {selectedStack && selectedInstance && (
             <div className="hint">
-              Versao ativa (stack): <strong>{selectedStack.currentVersion ?? 'n/a'}</strong>
+              Versão ativa (stack): <strong>{selectedStack.currentVersion ?? 'n/a'}</strong>
             </div>
           )}
         </section>
 
         <section className="card">
-          <h2>Versoes e historico</h2>
+          <h2>Versões e histórico</h2>
           {versionsError && <div className="inline-alert">{versionsError}</div>}
           {!selectedStack ? (
-            <div className="empty-state">Selecione uma stack para gerenciar versoes.</div>
+            <div className="empty-state">Selecione uma stack para gerenciar versões.</div>
           ) : (
             <>
               <div className="form-grid">
                 <label>
-                  Versao
+                  Versão
                   <input
                     value={versionForm.version}
                     onChange={(event) => setVersionForm((prev) => ({ ...prev, version: event.target.value }))}
@@ -898,18 +898,18 @@ export function StacksLocalPage(): JSX.Element {
               </div>
               <div className="form-actions">
                 <button type="button" onClick={handleCreateVersion} disabled={versionsLoading}>
-                  {versionsLoading ? 'Salvando...' : 'Criar snapshot da versao atual'}
+                  {versionsLoading ? 'Salvando...' : 'Criar snapshot da versão atual'}
                 </button>
               </div>
               {versionsLoading ? (
                 <div className="empty-state">Carregando...</div>
               ) : versions.length === 0 ? (
-                <div className="empty-state">Nenhuma versao registrada.</div>
+                <div className="empty-state">Nenhuma versão registrada.</div>
               ) : (
                 <table>
                   <thead>
                     <tr>
-                      <th>Versao</th>
+                      <th>Versão</th>
                       <th>Descricao</th>
                       <th>Responsavel</th>
                       <th>Criado em</th>
@@ -949,12 +949,12 @@ export function StacksLocalPage(): JSX.Element {
           {!selectedStack ? (
             <div className="empty-state">Selecione uma stack para iniciar um deploy.</div>
           ) : instances.length === 0 ? (
-            <div className="empty-state">Cadastre instancias antes de iniciar o deploy.</div>
+            <div className="empty-state">Cadastre instâncias antes de iniciar o deploy.</div>
           ) : (
             <>
               <div className="deploy-grid">
                 <div>
-                  <strong>Instancias alvo</strong>
+                  <strong>Instâncias alvo</strong>
                   <div className="instance-list">
                     {instances.map((instance) => {
                       const isSelected = deploySelection.includes(instance.id);
@@ -981,7 +981,7 @@ export function StacksLocalPage(): JSX.Element {
                       value={deployTargetVersion}
                       onChange={(event) => setDeployTargetVersion(event.target.value)}
                     >
-                      <option value="">Usar versao atual</option>
+                      <option value="">Usar versão atual</option>
                       {versionOptions.map((version) => (
                         <option key={version} value={version}>
                           {version}
@@ -1061,7 +1061,7 @@ export function StacksLocalPage(): JSX.Element {
                             <div className="stack-description">{result.errors.join(' | ')}</div>
                           )}
                         </td>
-                        <td>{result.rollbackApplied ? 'Sim' : 'Nao'}</td>
+                        <td>{result.rollbackApplied ? 'Sim' : 'Não'}</td>
                       </tr>
                     ))}
                   </tbody>

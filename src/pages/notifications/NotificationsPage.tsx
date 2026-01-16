@@ -82,7 +82,7 @@ export function NotificationsPage(): JSX.Element {
       setRules(rulesResult);
     } catch (err) {
       void err;
-      setError('Nao foi possivel carregar configuracoes.');
+      setError('Não foi possível carregar configurações.');
     } finally {
       setLoading(false);
     }
@@ -156,7 +156,7 @@ export function NotificationsPage(): JSX.Element {
   };
 
   return (
-    <AppLayout title="Notificacoes">
+    <AppLayout title="Notificações">
       <div className="notifications-page">
         {error && <div className="inline-alert">{error}</div>}
         {loading ? (

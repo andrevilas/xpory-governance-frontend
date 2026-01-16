@@ -136,7 +136,7 @@ export function DashboardPage(): JSX.Element {
         setRegistryImages(result);
       } catch (err) {
         void err;
-        setRegistryError('Nao foi possivel carregar detalhes de digest.');
+        setRegistryError('Não foi possível carregar detalhes de digest.');
         setRegistryImages([]);
       } finally {
         setRegistryLoading(false);
@@ -230,7 +230,7 @@ export function DashboardPage(): JSX.Element {
       setToastMessage('Registry watcher atualizado');
     } catch (err) {
       void err;
-      setError('Nao foi possivel atualizar o registry watcher.');
+      setError('Não foi possível atualizar o registry watcher.');
     } finally {
       setRegistryRunLoading(false);
     }

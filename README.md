@@ -1,6 +1,6 @@
 # XPORY Governance Frontend
 
-Este repositorio contem o Dashboard Estrategico do XPORY Governance Control Plane, permitindo visualizar instancias Portainer, stacks, auditorias de versao, alertas e fluxos de atualizacao assistida.
+Este repositorio contem o Dashboard Estrategico do XPORY Governance Control Plane, permitindo visualizar instâncias Portainer, stacks, auditorias de versão, alertas e fluxos de atualização assistida.
 
 ## Tecnologias
 - React + Vite
@@ -12,12 +12,12 @@ Este repositorio contem o Dashboard Estrategico do XPORY Governance Control Plan
 
 ## Funcionalidades
 - Login e controle de acesso (RBAC)
-- Painel geral de instancias
+- Painel geral de instâncias
 - Lista de stacks e auditorias
 - Deteccao de drift
-- Diferenca de compose para atualizacao assistida
-- Historico e alertas
-- Integracao com Prometheus/Grafana
+- Diferenca de compose para atualização assistida
+- Histórico e alertas
+- Integração com Prometheus/Grafana
 
 ## Executar localmente
 
@@ -30,7 +30,7 @@ npm run dev
 - VITE_API_URL
 - VITE_AUTH_PUBLIC_KEY_URL
 
-## Compilar para producao
+## Compilar para produção
 
 ```bash
 npm run build

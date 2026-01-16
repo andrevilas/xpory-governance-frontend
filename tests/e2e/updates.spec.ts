@@ -9,7 +9,7 @@ test.describe('Updates', () => {
     await setupApiMocks(page);
   });
 
-  test('carrega fluxo de aprovacao', async ({ page }) => {
+  test('carrega fluxo de aprovação', async ({ page }) => {
     await login(page);
     await page.goto('/app/updates');
 
