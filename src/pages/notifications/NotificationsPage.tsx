@@ -99,7 +99,7 @@ export function NotificationsPage(): JSX.Element {
 
   const handleCreateRecipient = async () => {
     if (!recipientForm.name.trim() || !recipientForm.address.trim()) {
-      setError('Informe nome e endereco.');
+      setError('Informe nome e endereço.');
       return;
     }
     setError(null);
@@ -129,7 +129,7 @@ export function NotificationsPage(): JSX.Element {
       return;
     }
     if (ruleForm.recipients.length === 0) {
-      setError('Selecione ao menos um destinatario.');
+      setError('Selecione ao menos um destinatário.');
       return;
     }
     setError(null);
@@ -208,12 +208,12 @@ export function NotificationsPage(): JSX.Element {
               </div>
               <div className="form-actions">
                 <button type="button" onClick={handleCreateRecipient}>
-                  Adicionar destinatario
+                  Adicionar destinatário
                 </button>
               </div>
 
               {recipients.length === 0 ? (
-                <div className="empty-state">Nenhum destinatario cadastrado.</div>
+                <div className="empty-state">Nenhum destinatário cadastrado.</div>
               ) : (
                 <table>
                   <thead>

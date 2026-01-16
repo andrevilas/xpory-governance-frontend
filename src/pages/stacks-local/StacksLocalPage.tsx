@@ -184,7 +184,7 @@ export function StacksLocalPage(): JSX.Element {
       setVariables(result);
     } catch (err) {
       void err;
-      setVariablesError('Falha ao carregar variáveis da stack.');
+      setVariablesError('Falha ao carregar variáveis do template.');
     } finally {
       setVariablesLoading(false);
     }
@@ -384,7 +384,7 @@ export function StacksLocalPage(): JSX.Element {
     }
     const value = instanceVarDrafts[variable.variableName]?.trim() ?? '';
     if (!value) {
-      setVariablesError('Informe um valor ou utilize Limpar para remover override.');
+      setVariablesError('Informe um valor ou use Limpar para remover override.');
       return;
     }
     setVariablesLoading(true);
@@ -662,7 +662,7 @@ export function StacksLocalPage(): JSX.Element {
           <h2>Variáveis declaradas</h2>
           {variablesError && <div className="inline-alert">{variablesError}</div>}
           {!selectedStack ? (
-            <div className="empty-state">Selecione uma stack para gerenciar variáveis.</div>
+            <div className="empty-state">Selecione uma stack para gerenciar variáveis do template.</div>
           ) : (
             <>
               <div className="form-grid">
@@ -773,7 +773,7 @@ export function StacksLocalPage(): JSX.Element {
           {instancesError && <div className="inline-alert">{instancesError}</div>}
           {variablesError && <div className="inline-alert">{variablesError}</div>}
           {!selectedStack ? (
-            <div className="empty-state">Selecione uma stack para editar variáveis.</div>
+            <div className="empty-state">Selecione uma stack para editar variáveis da instância.</div>
           ) : instances.length === 0 ? (
             <div className="empty-state">Nenhuma instância cadastrada.</div>
           ) : !selectedInstanceId ? (
@@ -781,7 +781,7 @@ export function StacksLocalPage(): JSX.Element {
           ) : variablesLoading ? (
             <div className="empty-state">Carregando...</div>
           ) : variables.length === 0 ? (
-            <div className="empty-state">Cadastre variáveis para editar overrides.</div>
+            <div className="empty-state">Cadastre variáveis para editar sobrescritas.</div>
           ) : (
             <table>
               <thead>
