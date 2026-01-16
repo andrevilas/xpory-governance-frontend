@@ -13,7 +13,7 @@ export const selectors = {
   },
   inventory: {
     table: '[data-testid="inventory.list.table"]',
-    filter: '[data-testid="inventory.filter.status.select"]',
+    filter: '[data-testid="inventory.filter.search.input"]',
     hostname: '[data-testid="inventory.detail.hostname.text"]',
   },
   audit: {
@@ -27,8 +27,6 @@ export const selectors = {
     submit: '[data-testid="update.deploy.submit.button"]',
   },
   notifications: {
-    emailToggle: '[data-testid="notifications.email.toggle"]',
-    smsToggle: '[data-testid="notifications.sms.toggle"]',
-    save: '[data-testid="notifications.save.button"]',
+    configLink: '[data-testid="notifications.config.link"]',
   },
 } as const;

@@ -9,19 +9,13 @@ test.describe('Alerts', () => {
     await setupApiMocks(page);
   });
 
-  test('toggle notificações', async ({ page }) => {
+  test('abre configuracoes de notificacoes', async ({ page }) => {
     await login(page);
     await page.goto('/app/alerts');
 
-    await expect(page.locator(selectors.notifications.emailToggle)).toBeVisible();
-    await expect(page.locator(selectors.notifications.smsToggle)).toBeVisible();
-
-    await page.locator(selectors.notifications.emailToggle).click();
-    await page.locator(selectors.notifications.smsToggle).click();
-    await expect(page.locator(selectors.notifications.save)).toBeVisible();
-    await page.locator(selectors.notifications.save).click();
-
-    await expect(page.getByText('Última gravação')).toBeVisible();
+    await expect(page.locator(selectors.notifications.configLink)).toBeVisible();
+    await page.locator(selectors.notifications.configLink).click();
+    await expect(page).toHaveURL(/\/app\/notifications$/);
   });
 
   test('filtra logs por canal e status', async ({ page }) => {

@@ -60,6 +60,11 @@ export function DashboardPage(): JSX.Element {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const auditFailedCount = useMemo(
+    () => auditRuns.filter((run) => run.status === 'failed').length,
+    [auditRuns],
+  );
+
   const loadData = async () => {
     setLoading(true);
     setError(null);
@@ -259,6 +264,35 @@ export function DashboardPage(): JSX.Element {
   const formatStatus = (status: string) => (status === 'success' ? 'OK' : 'Não concluído');
   const statusClass = (status: string) => (status === 'success' ? 'ok' : 'warn');
 
+  const handleExportAudit = () => {
+    if (filteredAuditResults.length === 0) {
+      setToastMessage('Nenhum dado para exportar');
+      return;
+    }
+    const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const rows = filteredAuditResults.map((item) => [
+      item.image,
+      item.currentTag,
+      item.latestTag,
+      item.updateAvailable ? 'Atualização' : 'OK',
+      item.riskLevel,
+    ]);
+    const csv = [
+      ['Imagem', 'Tag atual', 'Última tag', 'Status', 'Risco'],
+      ...rows,
+    ]
+      .map((row) => row.map((value) => escapeCsv(String(value ?? ''))).join(','))
+      .join('\n');
+    const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const filename = selected?.name ? `audit-${selected.name}.csv` : 'audit.csv';
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <AppLayout title="Dashboard">
       <div className="dashboard">
@@ -274,8 +308,10 @@ export function DashboardPage(): JSX.Element {
             </div>
           </div>
           <div className="card">
-            <h3>Auditorias em andamento</h3>
-            <div className="value" data-testid="dashboard.kpi.updates.count">0</div>
+            <h3>Auditorias com falha</h3>
+            <div className="value" data-testid="dashboard.kpi.updates.count">
+              {loading ? '-' : auditFailedCount}
+            </div>
           </div>
           <div className="card">
             <h3>Atenção necessária</h3>
@@ -465,7 +501,7 @@ export function DashboardPage(): JSX.Element {
               placeholder="Filtrar por nome"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              data-testid="inventory.filter.status.select"
+              data-testid="inventory.filter.search.input"
             />
             <label className="filter-toggle">
               <input
@@ -558,7 +594,12 @@ export function DashboardPage(): JSX.Element {
                   onChange={(event) => setAuditFilter(event.target.value)}
                   data-testid="audit.filter.actor.input"
                 />
-                <button type="button" data-testid="audit.export.button">
+                <button
+                  type="button"
+                  data-testid="audit.export.button"
+                  onClick={handleExportAudit}
+                  disabled={filteredAuditResults.length === 0}
+                >
                   Exportar
                 </button>
               </div>
