@@ -540,7 +540,7 @@ export function StacksLocalPage(): JSX.Element {
               />
             </label>
             <label>
-              Descricao
+              Descrição
               <input
                 value={form.description}
                 onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
@@ -576,7 +576,7 @@ export function StacksLocalPage(): JSX.Element {
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Buscar por nome ou descricao"
+                placeholder="Buscar por nome ou descrição"
               />
               <select value={versionFilter} onChange={(event) => setVersionFilter(event.target.value)}>
                 <option value="">Todas as versões</option>
@@ -611,7 +611,7 @@ export function StacksLocalPage(): JSX.Element {
                   >
                     <td>
                       <div className="stack-name">{stack.name}</div>
-                      <div className="stack-description">{stack.description ?? 'Sem descricao'}</div>
+                      <div className="stack-description">{stack.description ?? 'Sem descrição'}</div>
                     </td>
                     <td>
                       <span className="pill">{stack.currentVersion ?? 'n/a'}</span>
@@ -685,7 +685,7 @@ export function StacksLocalPage(): JSX.Element {
                   />
                 </label>
                 <label>
-                  Descricao
+                  Descrição
                   <input
                     value={variableForm.description}
                     onChange={(event) => setVariableForm((prev) => ({ ...prev, description: event.target.value }))}
@@ -726,7 +726,7 @@ export function StacksLocalPage(): JSX.Element {
                       <tr key={variable.id}>
                         <td>
                           <div className="stack-name">{variable.variableName}</div>
-                          <div className="stack-description">{variable.description ?? 'Sem descricao'}</div>
+                          <div className="stack-description">{variable.description ?? 'Sem descrição'}</div>
                         </td>
                         <td>{variable.isRequired ? 'Sim' : 'Não'}</td>
                         <td>{variable.defaultValue ?? 'n/a'}</td>
@@ -809,7 +809,7 @@ export function StacksLocalPage(): JSX.Element {
                     <tr key={variable.variableName}>
                       <td>
                         <div className="stack-name">{variable.variableName}</div>
-                        <div className="stack-description">{variable.description ?? 'Sem descricao'}</div>
+                        <div className="stack-description">{variable.description ?? 'Sem descrição'}</div>
                       </td>
                       <td>{variable.isRequired ? 'Sim' : 'Não'}</td>
                       <td>{variable.defaultValue ?? 'n/a'}</td>
@@ -880,7 +880,7 @@ export function StacksLocalPage(): JSX.Element {
                   />
                 </label>
                 <label>
-                  Responsavel
+                  Responsável
                   <input
                     value={versionForm.createdBy}
                     onChange={(event) => setVersionForm((prev) => ({ ...prev, createdBy: event.target.value }))}
@@ -888,7 +888,7 @@ export function StacksLocalPage(): JSX.Element {
                   />
                 </label>
                 <label>
-                  Descricao
+                  Descrição
                   <input
                     value={versionForm.description}
                     onChange={(event) => setVersionForm((prev) => ({ ...prev, description: event.target.value }))}
@@ -910,8 +910,8 @@ export function StacksLocalPage(): JSX.Element {
                   <thead>
                     <tr>
                       <th>Versão</th>
-                      <th>Descricao</th>
-                      <th>Responsavel</th>
+                      <th>Descrição</th>
+                      <th>Responsável</th>
                       <th>Criado em</th>
                       <th>Acoes</th>
                     </tr>
@@ -990,7 +990,7 @@ export function StacksLocalPage(): JSX.Element {
                     </select>
                   </label>
                   <label>
-                    Usuario solicitante
+                    Usuário solicitante
                     <input
                       value={deployUserId}
                       onChange={(event) => setDeployUserId(event.target.value)}

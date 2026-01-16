@@ -22,7 +22,7 @@ test.describe('Auth', () => {
     await expect(page.getByText('Falha ao autenticar')).toBeVisible();
   });
 
-  test('logout encerra sessao', async ({ page }) => {
+  test('logout encerra sessão', async ({ page }) => {
     await login(page);
     await page.click(selectors.auth.logout);
     await expect(page).toHaveURL(/\/login/);
