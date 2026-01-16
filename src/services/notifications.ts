@@ -8,6 +8,9 @@ export type NotificationLog = {
   message: string;
   status: string;
   providerResponse: string | null;
+  ruleId?: string | null;
+  eventType?: string | null;
+  severity?: string | null;
   createdAt: string;
 };
 
