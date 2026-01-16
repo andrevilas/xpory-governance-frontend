@@ -5,11 +5,9 @@ import { fetchAuditResults, fetchAuditRuns, runAudit, AuditResult, JobRun as Aud
 import {
   fetchInventoryStacks,
   fetchInventorySummary,
-  fetchInventoryRuns,
   runInventory,
   InventoryStack,
   InventorySummary,
-  JobRun as InventoryRun,
 } from '../../services/inventory';
 import {
   fetchStackRegistryImages,
@@ -19,6 +17,7 @@ import {
   RegistryUpdateResult,
 } from '../../services/registry';
 import './dashboard.css';
+import '../../components/ui/modal.css';
 
 type StackRow = {
   id: string;
@@ -26,12 +25,14 @@ type StackRow = {
   status: 'ok' | 'warn';
   version: string;
   endpointLabel: string;
+  instanceName: string | null;
   instanceDrifted: boolean;
   digestDrifted: boolean;
 };
 
 export function DashboardPage(): JSX.Element {
   const [search, setSearch] = useState('');
+  const [instanceFilter, setInstanceFilter] = useState('');
   const [selected, setSelected] = useState<StackRow | null>(null);
   const [stacks, setStacks] = useState<InventoryStack[]>([]);
   const [summary, setSummary] = useState<InventorySummary | null>(null);
@@ -40,14 +41,7 @@ export function DashboardPage(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [auditLoading, setAuditLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [inventoryRuns, setInventoryRuns] = useState<InventoryRun[]>([]);
   const [auditRuns, setAuditRuns] = useState<AuditRun[]>([]);
-  const [inventoryStatusFilter, setInventoryStatusFilter] = useState('');
-  const [auditStatusFilter, setAuditStatusFilter] = useState('');
-  const [inventoryPeriodDays, setInventoryPeriodDays] = useState(7);
-  const [auditPeriodDays, setAuditPeriodDays] = useState(7);
-  const [inventoryRunsLimit, setInventoryRunsLimit] = useState(8);
-  const [auditRunsLimit, setAuditRunsLimit] = useState(8);
   const [digestOnlyFilter, setDigestOnlyFilter] = useState(false);
   const [registryImages, setRegistryImages] = useState<RegistryImageState[]>([]);
   const [registryLoading, setRegistryLoading] = useState(false);
@@ -69,15 +63,13 @@ export function DashboardPage(): JSX.Element {
     setLoading(true);
     setError(null);
     try {
-      const [stacksResult, summaryResult, inventoryRunsResult, auditRunsResult] = await Promise.all([
+      const [stacksResult, summaryResult, auditRunsResult] = await Promise.all([
         fetchInventoryStacks(),
         fetchInventorySummary(),
-        fetchInventoryRuns(inventoryRunsLimit),
-        fetchAuditRuns(auditRunsLimit),
+        fetchAuditRuns(8),
       ]);
       setStacks(stacksResult);
       setSummary(summaryResult);
-      setInventoryRuns(inventoryRunsResult);
       setAuditRuns(auditRunsResult);
     } catch (err) {
       void err;
@@ -89,7 +81,7 @@ export function DashboardPage(): JSX.Element {
 
   useEffect(() => {
     void loadData();
-  }, [inventoryRunsLimit, auditRunsLimit]);
+  }, []);
 
   const stackRows = useMemo<StackRow[]>(() => {
     return stacks.map((stack) => ({
@@ -100,10 +92,21 @@ export function DashboardPage(): JSX.Element {
       endpointLabel: stack.instanceName
         ? `${stack.instanceName} / endpoint ${stack.endpointId}`
         : `Endpoint ${stack.endpointId}`,
+      instanceName: stack.instanceName,
       instanceDrifted: stack.instanceDrifted,
       digestDrifted: stack.digestDrifted,
     }));
   }, [stacks]);
+
+  const instanceOptions = useMemo(() => {
+    const names = new Set<string>();
+    stackRows.forEach((row) => {
+      if (row.instanceName) {
+        names.add(row.instanceName);
+      }
+    });
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [stackRows]);
 
   useEffect(() => {
     const loadAudit = async () => {
@@ -153,10 +156,13 @@ export function DashboardPage(): JSX.Element {
 
   const filteredStacks = useMemo(
     () => {
-      const filtered = stackRows.filter((row) => row.name.toLowerCase().includes(search.toLowerCase()));
+      let filtered = stackRows.filter((row) => row.name.toLowerCase().includes(search.toLowerCase()));
+      if (instanceFilter) {
+        filtered = filtered.filter((row) => row.instanceName === instanceFilter);
+      }
       return digestOnlyFilter ? filtered.filter((row) => row.digestDrifted) : filtered;
     },
-    [search, stackRows, digestOnlyFilter]
+    [search, stackRows, digestOnlyFilter, instanceFilter]
   );
 
   const filteredAuditResults = useMemo(() => {
@@ -167,23 +173,28 @@ export function DashboardPage(): JSX.Element {
     return auditResults.filter((item) => item.image.toLowerCase().includes(needle));
   }, [auditFilter, auditResults]);
 
-  const filteredInventoryRuns = useMemo(() => {
-    const cutoff = Date.now() - inventoryPeriodDays * 24 * 60 * 60 * 1000;
-    return inventoryRuns.filter((run) => {
-      const matchesStatus = !inventoryStatusFilter || run.status === inventoryStatusFilter;
-      const matchesPeriod = new Date(run.createdAt).getTime() >= cutoff;
-      return matchesStatus && matchesPeriod;
+  const operationalRows = useMemo(() => {
+    return stacks.map((stack) => {
+      const problems: string[] = [];
+      if (stack.outdated) {
+        problems.push('Stack desatualizada');
+      }
+      if (stack.instanceDrifted) {
+        problems.push('Drift entre instâncias');
+      }
+      if (stack.digestDrifted) {
+        problems.push('Drift de digest');
+      }
+      return {
+        id: stack.id,
+        instanceLabel: stack.instanceName ?? `Endpoint ${stack.endpointId}`,
+        name: stack.name,
+        status: problems.length > 0 ? 'Atenção' : 'OK',
+        when: stack.lastSnapshotAt ? new Date(stack.lastSnapshotAt).toLocaleString('pt-BR') : 'n/a',
+        problem: problems.length > 0 ? problems.join(' | ') : 'OK',
+      };
     });
-  }, [inventoryRuns, inventoryStatusFilter, inventoryPeriodDays]);
-
-  const filteredAuditRuns = useMemo(() => {
-    const cutoff = Date.now() - auditPeriodDays * 24 * 60 * 60 * 1000;
-    return auditRuns.filter((run) => {
-      const matchesStatus = !auditStatusFilter || run.status === auditStatusFilter;
-      const matchesPeriod = new Date(run.createdAt).getTime() >= cutoff;
-      return matchesStatus && matchesPeriod;
-    });
-  }, [auditRuns, auditStatusFilter, auditPeriodDays]);
+  }, [stacks]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -204,13 +215,11 @@ export function DashboardPage(): JSX.Element {
     setRefreshing(true);
     setError(null);
     try {
-      const [inventoryRunsResult, auditRunsResult, summaryResult, stacksResult] = await Promise.all([
-        fetchInventoryRuns(inventoryRunsLimit),
-        fetchAuditRuns(auditRunsLimit),
+      const [auditRunsResult, summaryResult, stacksResult] = await Promise.all([
+        fetchAuditRuns(8),
         fetchInventorySummary(),
         fetchInventoryStacks(),
       ]);
-      setInventoryRuns(inventoryRunsResult);
       setAuditRuns(auditRunsResult);
       setSummary(summaryResult);
       setStacks(stacksResult);
@@ -294,7 +303,22 @@ export function DashboardPage(): JSX.Element {
   };
 
   return (
-    <AppLayout title="Dashboard">
+    <AppLayout
+      title="Dashboard"
+      headerAction={
+        <>
+          <button type="button" className="header-button" onClick={handleRefresh} disabled={refreshing}>
+            {refreshing ? 'Atualizando...' : 'Atualizar dados'}
+          </button>
+          <button type="button" className="header-button" onClick={handleRefreshHistory} disabled={refreshing}>
+            Sincronizar histórico
+          </button>
+          <button type="button" className="header-button" onClick={handleRegistryRun} disabled={registryRunLoading}>
+            {registryRunLoading ? 'Atualizando registry...' : 'Atualizar registry watcher'}
+          </button>
+        </>
+      }
+    >
       <div className="dashboard">
         <section className="card-grid" data-testid="dashboard.summary.cards">
           <div className="card">
@@ -333,165 +357,6 @@ export function DashboardPage(): JSX.Element {
           </div>
         </section>
 
-        <section className="section">
-          <h2>Operação</h2>
-          <div className="table-tools">
-            <button type="button" onClick={handleRefresh} disabled={refreshing}>
-              {refreshing ? 'Atualizando...' : 'Atualizar dados'}
-            </button>
-            <button type="button" className="secondary" onClick={handleRefreshHistory} disabled={refreshing}>
-              Sincronizar histórico
-            </button>
-            <button type="button" className="secondary" onClick={handleRegistryRun} disabled={registryRunLoading}>
-              {registryRunLoading ? 'Atualizando registry...' : 'Atualizar registry watcher'}
-            </button>
-          </div>
-        </section>
-
-        <section className="section">
-          <h2>Histórico de execuções</h2>
-          <div className="history-grid">
-            <div className="history-card">
-              <h3>Inventário</h3>
-              <div className="history-filters">
-                <select
-                  value={inventoryStatusFilter}
-                  onChange={(event) => setInventoryStatusFilter(event.target.value)}
-                >
-                  <option value="">Todos</option>
-                  <option value="success">Sucesso</option>
-                  <option value="failed">Não concluído</option>
-                </select>
-                <select
-                  value={inventoryPeriodDays}
-                  onChange={(event) => setInventoryPeriodDays(Number(event.target.value))}
-                >
-                  <option value={1}>24h</option>
-                  <option value={3}>3 dias</option>
-                  <option value={7}>7 dias</option>
-                  <option value={30}>30 dias</option>
-                </select>
-              </div>
-              {inventoryRuns.length === 0 ? (
-                <p>Nenhuma execução registrada.</p>
-              ) : (
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Status</th>
-                      <th>Stacks</th>
-                        <th>Horário</th>
-                      <th>Erro</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredInventoryRuns.map((run) => (
-                      <tr
-                        key={run.id}
-                        onClick={() =>
-                          run.error
-                            ? setErrorDetail({
-                                title: 'Detalhes do alerta',
-                                message: run.error,
-                                meta: `Status: ${run.status}\nStacks: ${run.stacksCount}\nHorário: ${new Date(run.createdAt).toISOString()}`,
-                              })
-                            : null
-                        }
-                        className={run.error ? 'clickable' : ''}
-                      >
-                        <td>
-                          <span className={`pill ${statusClass(run.status)}`}>{formatStatus(run.status)}</span>
-                        </td>
-                        <td>{run.stacksCount}</td>
-                        <td>{new Date(run.createdAt).toLocaleString()}</td>
-                        <td className="error-cell">{run.error ? 'Detalhes disponíveis' : '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-              <div className="history-actions">
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => setInventoryRunsLimit((prev) => prev + 10)}
-                >
-                  Ver mais
-                </button>
-              </div>
-            </div>
-            <div className="history-card">
-              <h3>Auditoria</h3>
-              <div className="history-filters">
-                <select
-                  value={auditStatusFilter}
-                  onChange={(event) => setAuditStatusFilter(event.target.value)}
-                >
-                  <option value="">Todos</option>
-                  <option value="success">Sucesso</option>
-                  <option value="failed">Não concluído</option>
-                </select>
-                <select
-                  value={auditPeriodDays}
-                  onChange={(event) => setAuditPeriodDays(Number(event.target.value))}
-                >
-                  <option value={1}>24h</option>
-                  <option value={3}>3 dias</option>
-                  <option value={7}>7 dias</option>
-                  <option value={30}>30 dias</option>
-                </select>
-              </div>
-              {auditRuns.length === 0 ? (
-                <p>Nenhuma execução registrada.</p>
-              ) : (
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Status</th>
-                      <th>Stacks</th>
-                        <th>Horário</th>
-                      <th>Erro</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredAuditRuns.map((run) => (
-                      <tr
-                        key={run.id}
-                        onClick={() =>
-                          run.error
-                            ? setErrorDetail({
-                                title: 'Detalhes do alerta',
-                                message: run.error,
-                                meta: `Status: ${run.status}\nStacks: ${run.stacksCount}\nHorário: ${new Date(run.createdAt).toISOString()}`,
-                              })
-                            : null
-                        }
-                        className={run.error ? 'clickable' : ''}
-                      >
-                        <td>
-                          <span className={`pill ${statusClass(run.status)}`}>{formatStatus(run.status)}</span>
-                        </td>
-                        <td>{run.stacksCount}</td>
-                        <td>{new Date(run.createdAt).toLocaleString()}</td>
-                        <td className="error-cell">{run.error ? 'Detalhes disponíveis' : '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-              <div className="history-actions">
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => setAuditRunsLimit((prev) => prev + 10)}
-                >
-                  Ver mais
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-
         {error && <div className="inline-alert">{error}</div>}
 
         <section className="section">
@@ -503,6 +368,17 @@ export function DashboardPage(): JSX.Element {
               onChange={(event) => setSearch(event.target.value)}
               data-testid="inventory.filter.search.input"
             />
+            <select
+              value={instanceFilter}
+              onChange={(event) => setInstanceFilter(event.target.value)}
+            >
+              <option value="">Todas as instâncias</option>
+              {instanceOptions.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
             <label className="filter-toggle">
               <input
                 type="checkbox"
@@ -544,6 +420,34 @@ export function DashboardPage(): JSX.Element {
                       Detalhes
                     </button>
                   </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+
+        <section className="section">
+          <h2>Histórico operacional</h2>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Instância</th>
+                <th>Stack</th>
+                <th>Status</th>
+                <th>Quando</th>
+                <th>Problema detectado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {operationalRows.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.instanceLabel}</td>
+                  <td>{row.name}</td>
+                  <td>
+                    <span className={`badge ${row.status === 'OK' ? 'ok' : 'warn'}`}>{row.status}</span>
+                  </td>
+                  <td>{row.when}</td>
+                  <td>{row.problem}</td>
                 </tr>
               ))}
             </tbody>

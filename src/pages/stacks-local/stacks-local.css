@@ -45,11 +45,21 @@
   font-size: 14px;
   background: #f8fafc;
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .stacks-local-page textarea {
   min-height: 220px;
   resize: vertical;
+}
+
+.stacks-local-page input:focus,
+.stacks-local-page textarea:focus,
+.stacks-local-page select:focus {
+  outline: none;
+  border-color: #2563eb;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
 .stacks-local-page .form-actions {
@@ -65,6 +75,7 @@
   background: #0f172a;
   color: #fff;
   cursor: pointer;
+  font-weight: 600;
 }
 
 .stacks-local-page .form-actions button.secondary {

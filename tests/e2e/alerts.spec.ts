@@ -15,7 +15,7 @@ test.describe('Alerts', () => {
 
     await expect(page.locator(selectors.notifications.configLink)).toBeVisible();
     await page.locator(selectors.notifications.configLink).click();
-    await expect(page).toHaveURL(/\/app\/notifications$/);
+    await expect(page).toHaveURL(/\/app\/notifications\/recipients$/);
   });
 
   test('filtra logs por canal e status', async ({ page }) => {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { AppLayout } from '../../components/layout/AppLayout';
+import { Modal } from '../../components/ui/Modal';
 import {
   createInstance,
   deleteInstance,
@@ -8,6 +9,17 @@ import {
   PortainerInstance,
   updateInstance,
 } from '../../services/instances';
+import {
+  fetchStackInstanceVariables,
+  fetchStackLocalVariables,
+  fetchStacksLocal,
+  StackInstanceVariable,
+  StackLocal,
+  StackLocalVariable,
+  upsertInstanceVariable,
+  deleteInstanceVariable,
+} from '../../services/stacksLocal';
+import { fetchInventoryStacks } from '../../services/inventory';
 import './instances.css';
 
 type FormState = {
@@ -40,6 +52,15 @@ export function InstancesPage(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isStacksModalOpen, setIsStacksModalOpen] = useState(false);
+  const [stacks, setStacks] = useState<StackLocal[]>([]);
+  const [selectedStackId, setSelectedStackId] = useState<string | null>(null);
+  const [stackVariables, setStackVariables] = useState<StackLocalVariable[]>([]);
+  const [instanceVariables, setInstanceVariables] = useState<StackInstanceVariable[]>([]);
+  const [stackVarDrafts, setStackVarDrafts] = useState<Record<string, string>>({});
+  const [stacksLoading, setStacksLoading] = useState(false);
+  const [stacksError, setStacksError] = useState<string | null>(null);
 
   const sortedInstances = useMemo(
     () => [...instances].sort((a, b) => a.name.localeCompare(b.name)),
@@ -61,6 +82,17 @@ export function InstancesPage(): JSX.Element {
     () => instances.find((instance) => instance.id === selectedId) ?? null,
     [instances, selectedId],
   );
+
+  const selectedStack = useMemo(
+    () => stacks.find((stack) => stack.id === selectedStackId) ?? null,
+    [stacks, selectedStackId],
+  );
+
+  const instanceVariableMap = useMemo(() => {
+    const map = new Map<string, StackInstanceVariable>();
+    instanceVariables.forEach((entry) => map.set(entry.variableName, entry));
+    return map;
+  }, [instanceVariables]);
 
   const loadInstances = async () => {
     setLoading(true);
@@ -92,11 +124,26 @@ export function InstancesPage(): JSX.Element {
       environment: instance.environment,
       validateConnection: true,
     });
+    setError(null);
+    setIsModalOpen(true);
+  };
+
+  const openCreate = () => {
+    setEditingId(null);
+    setForm(emptyForm);
+    setError(null);
+    setIsModalOpen(true);
   };
 
   const resetForm = () => {
     setEditingId(null);
     setForm(emptyForm);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    resetForm();
+    setError(null);
   };
 
   const handleSubmit = async () => {
@@ -140,6 +187,7 @@ export function InstancesPage(): JSX.Element {
       }
       await loadInstances();
       resetForm();
+      setIsModalOpen(false);
     } catch (err) {
       const message =
         typeof (err as { response?: { data?: { message?: string } } })?.response?.data?.message === 'string'
@@ -171,83 +219,110 @@ export function InstancesPage(): JSX.Element {
     }
   };
 
-  return (
-    <AppLayout title="Instâncias">
-      <div className="instances-page">
-        <section className="card">
-          <h2>{editingId ? 'Editar instância' : 'Cadastrar instância'}</h2>
-          {error && <div className="inline-alert">{error}</div>}
-          <div className="form-grid">
-            <label>
-              Nome
-              <input
-                value={form.name}
-                onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-                placeholder="Portainer Homolog"
-              />
-            </label>
-            <label>
-              URL base
-              <input
-                value={form.baseUrl}
-                onChange={(event) => setForm((prev) => ({ ...prev, baseUrl: event.target.value }))}
-                placeholder="https://portainer.example.com"
-              />
-            </label>
-            <label>
-              Ambiente
-              <input
-                value={form.environment}
-                onChange={(event) => setForm((prev) => ({ ...prev, environment: event.target.value }))}
-                placeholder="homolog"
-              />
-            </label>
-            <label>
-              Token
-              <input
-                value={form.token}
-                onChange={(event) => setForm((prev) => ({ ...prev, token: event.target.value }))}
-                placeholder={editingId ? 'Deixe em branco para manter' : 'Token API'}
-              />
-            </label>
-            <label>
-              Usuário
-              <input
-                value={form.username}
-                onChange={(event) => setForm((prev) => ({ ...prev, username: event.target.value }))}
-                placeholder={editingId ? 'Deixe em branco para manter' : 'usuario@empresa.com'}
-              />
-            </label>
-            <label>
-              Senha
-              <input
-                type="password"
-                value={form.password}
-                onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
-                placeholder={editingId ? 'Deixe em branco para manter' : 'Senha da instância'}
-              />
-            </label>
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                checked={form.validateConnection}
-                onChange={(event) => setForm((prev) => ({ ...prev, validateConnection: event.target.checked }))}
-              />
-              Validar conexão ao salvar
-            </label>
-          </div>
-          <div className="form-actions">
-            <button type="button" onClick={handleSubmit} disabled={saving}>
-              {editingId ? 'Salvar alterações' : 'Cadastrar'}
-            </button>
-            {editingId ? (
-              <button type="button" className="secondary" onClick={resetForm} disabled={saving}>
-                Cancelar
-              </button>
-            ) : null}
-          </div>
-        </section>
+  const openStacksModal = async (instance: PortainerInstance) => {
+    setSelectedId(instance.id);
+    setStacksError(null);
+    setStacksLoading(true);
+    setIsStacksModalOpen(true);
+    try {
+      const [stacksResult, inventoryStacks] = await Promise.all([
+        fetchStacksLocal(),
+        fetchInventoryStacks(),
+      ]);
+      const instanceStackNames = new Set(
+        inventoryStacks
+          .filter((stack) => stack.instanceId === instance.id)
+          .map((stack) => stack.name.toLowerCase()),
+      );
+      const filteredStacks = stacksResult.filter((stack) =>
+        instanceStackNames.has(stack.name.toLowerCase()),
+      );
+      setStacks(filteredStacks);
+      setSelectedStackId((prev) => prev ?? filteredStacks[0]?.id ?? null);
+    } catch (err) {
+      void err;
+      setStacksError('Não foi possível carregar stacks globais.');
+    } finally {
+      setStacksLoading(false);
+    }
+  };
 
+  const closeStacksModal = () => {
+    setIsStacksModalOpen(false);
+    setStacks([]);
+    setSelectedStackId(null);
+    setStackVariables([]);
+    setInstanceVariables([]);
+    setStackVarDrafts({});
+    setStacksError(null);
+  };
+
+  const loadStackVariables = async (stackId: string, instanceId: string) => {
+    setStacksError(null);
+    try {
+      const [variablesResult, instanceVarsResult] = await Promise.all([
+        fetchStackLocalVariables(stackId),
+        fetchStackInstanceVariables(stackId, instanceId),
+      ]);
+      setStackVariables(variablesResult);
+      setInstanceVariables(instanceVarsResult);
+      const drafts: Record<string, string> = {};
+      instanceVarsResult.forEach((entry) => {
+        drafts[entry.variableName] = entry.value;
+      });
+      setStackVarDrafts(drafts);
+    } catch (err) {
+      void err;
+      setStacksError('Falha ao carregar variáveis da stack.');
+    }
+  };
+
+  useEffect(() => {
+    if (!isStacksModalOpen || !selectedStackId || !selectedId) {
+      return;
+    }
+    void loadStackVariables(selectedStackId, selectedId);
+  }, [isStacksModalOpen, selectedStackId, selectedId]);
+
+  const handleSaveStackVariables = async () => {
+    if (!selectedStackId || !selectedId) {
+      return;
+    }
+    setStacksError(null);
+    setStacksLoading(true);
+    try {
+      await Promise.all(
+        stackVariables.map(async (variable) => {
+          const value = (stackVarDrafts[variable.variableName] ?? '').trim();
+          const existing = instanceVariableMap.get(variable.variableName);
+          if (!value) {
+            if (existing) {
+              await deleteInstanceVariable(selectedStackId, selectedId, variable.variableName);
+            }
+            return;
+          }
+          await upsertInstanceVariable(selectedStackId, selectedId, variable.variableName, value);
+        }),
+      );
+      await loadStackVariables(selectedStackId, selectedId);
+    } catch (err) {
+      void err;
+      setStacksError('Falha ao salvar variáveis da instância.');
+    } finally {
+      setStacksLoading(false);
+    }
+  };
+
+  return (
+    <AppLayout
+      title="Instâncias"
+      headerAction={
+        <button type="button" className="header-button primary" onClick={openCreate}>
+          Novo
+        </button>
+      }
+    >
+      <div className="instances-page">
         <section className="card">
           <h2>Instâncias cadastradas</h2>
           <div className="table-tools">
@@ -307,6 +382,17 @@ export function InstancesPage(): JSX.Element {
                       </button>
                       <button
                         type="button"
+                        className="secondary"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void openStacksModal(instance);
+                        }}
+                        disabled={saving}
+                      >
+                        Stacks
+                      </button>
+                      <button
+                        type="button"
                         className="danger"
                         onClick={(event) => {
                           event.stopPropagation();
@@ -358,6 +444,172 @@ export function InstancesPage(): JSX.Element {
           )}
         </section>
       </div>
+
+      <Modal
+        isOpen={isModalOpen}
+        title={editingId ? 'Editar instância' : 'Nova instância'}
+        onClose={closeModal}
+      >
+        {error && <div className="inline-alert">{error}</div>}
+        <div className="form-grid">
+          <label>
+            Nome
+            <input
+              value={form.name}
+              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+              placeholder="Portainer Homolog"
+            />
+          </label>
+          <label>
+            URL base
+            <input
+              value={form.baseUrl}
+              onChange={(event) => setForm((prev) => ({ ...prev, baseUrl: event.target.value }))}
+              placeholder="https://portainer.example.com"
+            />
+          </label>
+          <label>
+            Ambiente
+            <input
+              value={form.environment}
+              onChange={(event) => setForm((prev) => ({ ...prev, environment: event.target.value }))}
+              placeholder="homolog"
+            />
+          </label>
+          <label>
+            Token
+            <input
+              value={form.token}
+              onChange={(event) => setForm((prev) => ({ ...prev, token: event.target.value }))}
+              placeholder={editingId ? 'Deixe em branco para manter' : 'Token API'}
+            />
+          </label>
+          <label>
+            Usuário
+            <input
+              value={form.username}
+              onChange={(event) => setForm((prev) => ({ ...prev, username: event.target.value }))}
+              placeholder={editingId ? 'Deixe em branco para manter' : 'usuario@empresa.com'}
+            />
+          </label>
+          <label>
+            Senha
+            <input
+              type="password"
+              value={form.password}
+              onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
+              placeholder={editingId ? 'Deixe em branco para manter' : 'Senha da instância'}
+            />
+          </label>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={form.validateConnection}
+              onChange={(event) => setForm((prev) => ({ ...prev, validateConnection: event.target.checked }))}
+            />
+            Validar conexão ao salvar
+          </label>
+        </div>
+        <div className="form-actions">
+          <button type="button" onClick={handleSubmit} disabled={saving}>
+            {editingId ? 'Salvar alterações' : 'Cadastrar'}
+          </button>
+          <button type="button" className="secondary" onClick={closeModal} disabled={saving}>
+            Cancelar
+          </button>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isStacksModalOpen}
+        title={`Stacks globais${selectedInstance ? ` · ${selectedInstance.name}` : ''}`}
+        onClose={closeStacksModal}
+      >
+        {stacksError && <div className="inline-alert">{stacksError}</div>}
+        {stacksLoading ? (
+          <div className="empty-state">Carregando...</div>
+        ) : (
+          <>
+            <div className="form-grid">
+              <label>
+                Stack global
+                <select
+                  value={selectedStackId ?? ''}
+                  onChange={(event) => setSelectedStackId(event.target.value || null)}
+                  disabled={stacks.length === 0}
+                >
+                  {stacks.length === 0 ? (
+                    <option value="">Nenhuma stack disponível</option>
+                  ) : (
+                    stacks.map((stack) => (
+                      <option key={stack.id} value={stack.id}>
+                        {stack.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </label>
+            </div>
+
+            {selectedStackId && (
+              <div className="stack-vars">
+                {stackVariables.length === 0 ? (
+                  <div className="empty-state">Nenhuma variável cadastrada para esta stack.</div>
+                ) : (
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Variável</th>
+                        <th>Obrigatória</th>
+                        <th>Default</th>
+                        <th>Valor na instância</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stackVariables.map((variable) => {
+                        const instanceValue = stackVarDrafts[variable.variableName] ?? '';
+                        return (
+                          <tr key={variable.id}>
+                            <td>
+                              <div className="stack-name">{variable.variableName}</div>
+                              <div className="stack-description">{variable.description ?? 'Sem descrição'}</div>
+                            </td>
+                            <td>{variable.isRequired ? 'Sim' : 'Não'}</td>
+                            <td>{variable.defaultValue ?? 'n/a'}</td>
+                            <td>
+                              <input
+                                value={instanceValue}
+                                onChange={(event) =>
+                                  setStackVarDrafts((prev) => ({
+                                    ...prev,
+                                    [variable.variableName]: event.target.value,
+                                  }))
+                                }
+                                placeholder={variable.defaultValue ?? ''}
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+            {!selectedStackId && stacks.length === 0 && (
+              <div className="empty-state">Nenhuma stack global corresponde às stacks da instância.</div>
+            )}
+            <div className="form-actions">
+              <button type="button" onClick={handleSaveStackVariables} disabled={stacksLoading || !selectedStack}>
+                Salvar variáveis
+              </button>
+              <button type="button" className="secondary" onClick={closeStacksModal}>
+                Fechar
+              </button>
+            </div>
+          </>
+        )}
+      </Modal>
     </AppLayout>
   );
 }

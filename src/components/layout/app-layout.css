@@ -95,6 +95,12 @@
   cursor: pointer;
 }
 
+.header-button.primary {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
 .content {
   padding: 28px;
 }

@@ -6,9 +6,10 @@ import './app-layout.css';
 type AppLayoutProps = {
   title: string;
   children: React.ReactNode;
+  headerAction?: React.ReactNode;
 };
 
-export function AppLayout({ title, children }: AppLayoutProps): JSX.Element {
+export function AppLayout({ title, children, headerAction }: AppLayoutProps): JSX.Element {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useAuth();
@@ -68,7 +69,7 @@ export function AppLayout({ title, children }: AppLayoutProps): JSX.Element {
           <button
             type="button"
             className={`nav-item${location.pathname.includes('/app/notifications') ? ' active' : ''}`}
-            onClick={() => navigate('/app/notifications')}
+            onClick={() => navigate('/app/notifications/recipients')}
           >
             Notificações
           </button>
@@ -79,6 +80,7 @@ export function AppLayout({ title, children }: AppLayoutProps): JSX.Element {
         <header className="header">
           <div className="breadcrumb">Home / {title}</div>
           <div className="header-actions">
+            {headerAction}
             <button
               type="button"
               className="header-button"

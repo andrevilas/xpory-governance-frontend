@@ -5,8 +5,11 @@ import { AlertsPage } from '../pages/alerts/AlertsPage';
 import { DashboardPage } from '../pages/dashboard/DashboardPage';
 import { InstancesPage } from '../pages/instances/InstancesPage';
 import { LoginPage } from '../pages/login/LoginPage';
-import { NotificationsPage } from '../pages/notifications/NotificationsPage';
+import { NotificationRecipientsPage } from '../pages/notifications/NotificationRecipientsPage';
+import { NotificationRulesPage } from '../pages/notifications/NotificationRulesPage';
 import { StacksLocalPage } from '../pages/stacks-local/StacksLocalPage';
+import { StacksLocalVariablesPage } from '../pages/stacks-local/StacksLocalVariablesPage';
+import { StacksLocalVersionsPage } from '../pages/stacks-local/StacksLocalVersionsPage';
 import { UpdatePage } from '../pages/updates/UpdatePage';
 
 export function AppRouter(): JSX.Element {
@@ -18,10 +21,18 @@ export function AppRouter(): JSX.Element {
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="instances" element={<InstancesPage />} />
-          <Route path="stacks" element={<StacksLocalPage />} />
+          <Route path="stacks">
+            <Route index element={<StacksLocalPage />} />
+            <Route path="variables" element={<StacksLocalVariablesPage />} />
+            <Route path="versions" element={<StacksLocalVersionsPage />} />
+          </Route>
           <Route path="updates" element={<UpdatePage />} />
           <Route path="alerts" element={<AlertsPage />} />
-          <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="notifications">
+            <Route index element={<Navigate to="recipients" replace />} />
+            <Route path="recipients" element={<NotificationRecipientsPage />} />
+            <Route path="rules" element={<NotificationRulesPage />} />
+          </Route>
         </Route>
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
