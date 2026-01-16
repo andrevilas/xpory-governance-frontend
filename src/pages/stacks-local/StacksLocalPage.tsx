@@ -184,7 +184,7 @@ export function StacksLocalPage(): JSX.Element {
       setVariables(result);
     } catch (err) {
       void err;
-      setVariablesError('Falha ao carregar variaveis da stack.');
+      setVariablesError('Falha ao carregar variáveis da stack.');
     } finally {
       setVariablesLoading(false);
     }
@@ -216,7 +216,7 @@ export function StacksLocalPage(): JSX.Element {
       setInstanceVarDrafts(draft);
     } catch (err) {
       void err;
-      setVariablesError('Falha ao carregar variaveis da instancia.');
+      setVariablesError('Falha ao carregar variáveis da instância.');
     }
   };
 
@@ -333,7 +333,7 @@ export function StacksLocalPage(): JSX.Element {
       return;
     }
     if (!variableForm.variableName.trim()) {
-      setVariablesError('Informe o nome da variavel.');
+      setVariablesError('Informe o nome da variável.');
       return;
     }
     setVariablesLoading(true);
@@ -352,7 +352,7 @@ export function StacksLocalPage(): JSX.Element {
         typeof (err as { response?: { data?: { message?: string } } })?.response?.data?.message === 'string'
           ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
           : null;
-      setVariablesError(message ?? 'Falha ao salvar variavel.');
+      setVariablesError(message ?? 'Falha ao salvar variável.');
     } finally {
       setVariablesLoading(false);
     }
@@ -372,7 +372,7 @@ export function StacksLocalPage(): JSX.Element {
         typeof (err as { response?: { data?: { message?: string } } })?.response?.data?.message === 'string'
           ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
           : null;
-      setVariablesError(message ?? 'Falha ao remover variavel.');
+      setVariablesError(message ?? 'Falha ao remover variável.');
     } finally {
       setVariablesLoading(false);
     }
@@ -401,7 +401,7 @@ export function StacksLocalPage(): JSX.Element {
         typeof (err as { response?: { data?: { message?: string } } })?.response?.data?.message === 'string'
           ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
           : null;
-      setVariablesError(message ?? 'Falha ao salvar variavel por instancia.');
+      setVariablesError(message ?? 'Falha ao salvar variável por instância.');
     } finally {
       setVariablesLoading(false);
     }
@@ -422,7 +422,7 @@ export function StacksLocalPage(): JSX.Element {
         typeof (err as { response?: { data?: { message?: string } } })?.response?.data?.message === 'string'
           ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
           : null;
-      setVariablesError(message ?? 'Falha ao limpar variavel por instancia.');
+      setVariablesError(message ?? 'Falha ao limpar variável por instância.');
     } finally {
       setVariablesLoading(false);
     }
@@ -659,10 +659,10 @@ export function StacksLocalPage(): JSX.Element {
         )}
 
         <section className="card">
-          <h2>Variaveis declaradas</h2>
+          <h2>Variáveis declaradas</h2>
           {variablesError && <div className="inline-alert">{variablesError}</div>}
           {!selectedStack ? (
-            <div className="empty-state">Selecione uma stack para gerenciar variaveis.</div>
+            <div className="empty-state">Selecione uma stack para gerenciar variáveis.</div>
           ) : (
             <>
               <div className="form-grid">
@@ -703,18 +703,18 @@ export function StacksLocalPage(): JSX.Element {
               </div>
               <div className="form-actions">
                 <button type="button" onClick={handleCreateVariable} disabled={variablesLoading}>
-                  {variablesLoading ? 'Salvando...' : 'Adicionar variavel'}
+                  {variablesLoading ? 'Salvando...' : 'Adicionar variável'}
                 </button>
               </div>
               {variablesLoading ? (
                 <div className="empty-state">Carregando...</div>
               ) : variables.length === 0 ? (
-                <div className="empty-state">Nenhuma variavel cadastrada.</div>
+                <div className="empty-state">Nenhuma variável cadastrada.</div>
               ) : (
                 <table>
                   <thead>
                     <tr>
-                      <th>Variavel</th>
+                      <th>Variável</th>
                       <th>Obrigatoria</th>
                       <th>Default</th>
                       <th>Atualizado em</th>
@@ -754,14 +754,14 @@ export function StacksLocalPage(): JSX.Element {
 
         <section className="card">
           <div className="card-header">
-            <h2>Variaveis por instancia</h2>
+            <h2>Variáveis por instância</h2>
             <div className="table-tools">
               <select
                 value={selectedInstanceId ?? ''}
                 onChange={(event) => setSelectedInstanceId(event.target.value || null)}
                 disabled={instances.length === 0}
               >
-                <option value="">Selecione uma instancia</option>
+                <option value="">Selecione uma instância</option>
                 {instances.map((instance) => (
                   <option key={instance.id} value={instance.id}>
                     {instance.name} ({instance.environment})
@@ -773,23 +773,23 @@ export function StacksLocalPage(): JSX.Element {
           {instancesError && <div className="inline-alert">{instancesError}</div>}
           {variablesError && <div className="inline-alert">{variablesError}</div>}
           {!selectedStack ? (
-            <div className="empty-state">Selecione uma stack para editar variaveis.</div>
+            <div className="empty-state">Selecione uma stack para editar variáveis.</div>
           ) : instances.length === 0 ? (
-            <div className="empty-state">Nenhuma instancia cadastrada.</div>
+            <div className="empty-state">Nenhuma instância cadastrada.</div>
           ) : !selectedInstanceId ? (
-            <div className="empty-state">Escolha uma instancia para visualizar variaveis.</div>
+            <div className="empty-state">Escolha uma instância para visualizar variáveis.</div>
           ) : variablesLoading ? (
             <div className="empty-state">Carregando...</div>
           ) : variables.length === 0 ? (
-            <div className="empty-state">Cadastre variaveis para editar overrides.</div>
+            <div className="empty-state">Cadastre variáveis para editar overrides.</div>
           ) : (
             <table>
               <thead>
                 <tr>
-                  <th>Variavel</th>
+                  <th>Variável</th>
                   <th>Obrigatoria</th>
                   <th>Default</th>
-                  <th>Valor na instancia</th>
+                  <th>Valor na instância</th>
                   <th>Status</th>
                   <th>Acoes</th>
                 </tr>
@@ -892,7 +892,7 @@ export function StacksLocalPage(): JSX.Element {
                   <input
                     value={versionForm.description}
                     onChange={(event) => setVersionForm((prev) => ({ ...prev, description: event.target.value }))}
-                    placeholder="Fix de variaveis"
+                    placeholder="Fix de variáveis"
                   />
                 </label>
               </div>
@@ -1042,7 +1042,7 @@ export function StacksLocalPage(): JSX.Element {
                 <table>
                   <thead>
                     <tr>
-                      <th>Instancia</th>
+                      <th>Instância</th>
                       <th>Status</th>
                       <th>Mensagem</th>
                       <th>Rollback</th>
