@@ -1,0 +1,49 @@
+.user-form-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.user-form-modal .inline-alert {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fff4f4;
+  color: #b42318;
+  font-size: 13px;
+}
+
+.user-form-modal .form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.user-form-modal label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  color: #2c2d31;
+}
+
+.user-form-modal input,
+.user-form-modal select {
+  border: 1px solid #d7dbe0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: #fff;
+}
+
+.user-form-modal .checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.user-form-modal .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}

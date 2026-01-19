@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
+import { MasterRoute } from '../components/MasterRoute';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 import { AlertsPage } from '../pages/alerts/AlertsPage';
 import { DashboardPage } from '../pages/dashboard/DashboardPage';
@@ -11,6 +12,7 @@ import { StacksLocalPage } from '../pages/stacks-local/StacksLocalPage';
 import { StacksLocalVariablesPage } from '../pages/stacks-local/StacksLocalVariablesPage';
 import { StacksLocalVersionsPage } from '../pages/stacks-local/StacksLocalVersionsPage';
 import { UpdatePage } from '../pages/updates/UpdatePage';
+import { UsersPage } from '../pages/users/UsersPage';
 
 export function AppRouter(): JSX.Element {
   return (
@@ -32,6 +34,9 @@ export function AppRouter(): JSX.Element {
             <Route index element={<Navigate to="recipients" replace />} />
             <Route path="recipients" element={<NotificationRecipientsPage />} />
             <Route path="rules" element={<NotificationRulesPage />} />
+          </Route>
+          <Route path="users" element={<MasterRoute />}>
+            <Route index element={<UsersPage />} />
           </Route>
         </Route>
         <Route path="/" element={<Navigate to="/login" replace />} />

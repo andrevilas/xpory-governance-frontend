@@ -1,7 +1,12 @@
 import { createContext, useCallback, useMemo, useState } from 'react';
 
+import { decodeJwt, isTokenExpired } from '../../utils/jwt';
+
 type AuthContextValue = {
   token: string | null;
+  role: string | null;
+  userId: string | null;
+  isMaster: boolean;
   login: (token: string) => void;
   logout: () => void;
 };
@@ -14,6 +19,10 @@ type AuthProviderProps = {
 
 export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
   const [token, setToken] = useState(() => localStorage.getItem('xpory_token'));
+  const payload = useMemo(() => (token ? decodeJwt(token) : null), [token]);
+  const role = payload?.role ?? null;
+  const userId = payload?.sub ?? null;
+  const isMaster = role === 'admin_master';
 
   const login = useCallback((nextToken: string) => {
     localStorage.setItem('xpory_token', nextToken);
@@ -25,7 +34,14 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     setToken(null);
   }, []);
 
-  const value = useMemo(() => ({ token, login, logout }), [token, login, logout]);
+  const value = useMemo(() => ({
+    token: isTokenExpired(payload) ? null : token,
+    role: isTokenExpired(payload) ? null : role,
+    userId: isTokenExpired(payload) ? null : userId,
+    isMaster: !isTokenExpired(payload) && isMaster,
+    login,
+    logout,
+  }), [token, role, userId, isMaster, login, logout, payload]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

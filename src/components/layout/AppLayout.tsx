@@ -12,7 +12,7 @@ type AppLayoutProps = {
 export function AppLayout({ title, children, headerAction }: AppLayoutProps): JSX.Element {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useAuth();
+  const { logout, isMaster } = useAuth();
 
   const handleLogout = () => {
     logout();
@@ -73,6 +73,15 @@ export function AppLayout({ title, children, headerAction }: AppLayoutProps): JS
           >
             Notificações
           </button>
+          {isMaster && (
+            <button
+              type="button"
+              className={`nav-item${location.pathname.includes('/app/users') ? ' active' : ''}`}
+              onClick={() => navigate('/app/users')}
+            >
+              Usuários
+            </button>
+          )}
         </nav>
       </aside>
 
