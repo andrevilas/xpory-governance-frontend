@@ -475,19 +475,40 @@ export function DashboardPage(): JSX.Element {
 
       {selected && (
         <div className="modal-overlay" role="dialog" aria-modal="true">
-          <div className="modal">
+          <div className="modal stack-detail-modal">
             <header>
               <h3 data-testid="inventory.detail.hostname.text">{selected.name}</h3>
               <button type="button" onClick={() => setSelected(null)}>
                 Fechar
               </button>
             </header>
-            <p>Endpoint: {selected.endpointLabel}</p>
-            <p>Status atual: {selected.status === 'ok' ? 'OK' : 'Atenção'}</p>
-            <p>Tipo da stack: {selected.version}</p>
-            <p>Última auditoria: {summary?.lastAuditAt ?? 'pendente'}</p>
-            <p>Drift entre instâncias: {selected.instanceDrifted ? 'Sim' : 'Não'}</p>
-            <p>Drift de digest: {selected.digestDrifted ? 'Sim' : 'Não'}</p>
+            <div className="stack-summary">
+              <div>
+                <div className="stack-summary-title">Stack selecionada</div>
+                <div className="stack-summary-subtitle">{selected.endpointLabel}</div>
+              </div>
+              <div className="stack-summary-badges">
+                <span className={`badge ${selected.status === 'ok' ? 'ok' : 'warn'}`}>
+                  {selected.status === 'ok' ? 'OK' : 'Atenção'}
+                </span>
+                <span className="badge neutral">{selected.version}</span>
+              </div>
+            </div>
+
+            <div className="stack-metadata">
+              <div>
+                <strong>Última auditoria</strong>
+                <span>{summary?.lastAuditAt ?? 'pendente'}</span>
+              </div>
+              <div>
+                <strong>Drift entre instâncias</strong>
+                <span>{selected.instanceDrifted ? 'Sim' : 'Não'}</span>
+              </div>
+              <div>
+                <strong>Drift de digest</strong>
+                <span>{selected.digestDrifted ? 'Sim' : 'Não'}</span>
+              </div>
+            </div>
 
             <section className="audit-results">
               <h4>Auditoria da stack</h4>
@@ -562,32 +583,34 @@ export function DashboardPage(): JSX.Element {
               ) : registryImages.length === 0 ? (
                 <p>Nenhuma imagem registrada.</p>
               ) : (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Imagem</th>
-                      <th>Tag</th>
-                      <th>Digest local</th>
-                      <th>Digest registry</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {registryImages.map((image) => (
-                      <tr key={`${image.image}:${image.tag}`}>
-                        <td>{image.image}</td>
-                        <td>{image.tag}</td>
-                        <td>{image.digest ?? 'n/a'}</td>
-                        <td>{image.registryDigest ?? 'n/a'}</td>
-                        <td>
-                          <span className={`badge ${image.drifted ? 'warn' : 'ok'}`}>
-                            {image.drifted ? 'Drift' : 'OK'}
-                          </span>
-                        </td>
+                <div className="registry-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Imagem</th>
+                        <th>Tag</th>
+                        <th>Digest local</th>
+                        <th>Digest registry</th>
+                        <th>Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {registryImages.map((image) => (
+                        <tr key={`${image.image}:${image.tag}`}>
+                          <td className="truncate">{image.image}</td>
+                          <td>{image.tag}</td>
+                          <td className="mono">{image.digest ?? 'n/a'}</td>
+                          <td className="mono">{image.registryDigest ?? 'n/a'}</td>
+                          <td>
+                            <span className={`badge ${image.drifted ? 'warn' : 'ok'}`}>
+                              {image.drifted ? 'Drift' : 'OK'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </section>
           </div>
