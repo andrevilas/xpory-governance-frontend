@@ -99,6 +99,8 @@ export function StacksLocalPage(): JSX.Element {
   const [versionPromptValue, setVersionPromptValue] = useState('');
   const [versionPromptError, setVersionPromptError] = useState<string | null>(null);
   const [pendingVersionSave, setPendingVersionSave] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [detailsTab, setDetailsTab] = useState<'details' | 'deploy'>('details');
 
   const sortedStacks = useMemo(
     () => [...stacks].sort((a, b) => a.name.localeCompare(b.name)),
@@ -286,6 +288,22 @@ export function StacksLocalPage(): JSX.Element {
     setVersionPromptError(null);
   };
 
+  const openDetails = (stack: StackLocal) => {
+    setSelectedId(stack.id);
+    setDetailsTab('details');
+    setDeployError(null);
+    setPreviewResults([]);
+    setDeployResults([]);
+    setIsDetailsOpen(true);
+  };
+
+  const closeDetails = () => {
+    setIsDetailsOpen(false);
+    setDeployError(null);
+    setPreviewResults([]);
+    setDeployResults([]);
+  };
+
   const createTemplateVariables = async (stackId: string, variables: string[]) => {
     if (variables.length === 0) {
       return;
@@ -426,6 +444,7 @@ export function StacksLocalPage(): JSX.Element {
       await loadStacks();
       if (selectedId === stack.id) {
         setSelectedId(null);
+        setIsDetailsOpen(false);
       }
     } catch (err) {
       const message =
@@ -529,7 +548,7 @@ export function StacksLocalPage(): JSX.Element {
                   <th>Stack</th>
                   <th>Versão atual</th>
                   <th>Atualizado em</th>
-                  <th>Acoes</th>
+                  <th>Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -549,6 +568,16 @@ export function StacksLocalPage(): JSX.Element {
                     <td>{formatDate(stack.updatedAt)}</td>
                     <td>
                       <div className="actions">
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openDetails(stack);
+                          }}
+                        >
+                          Detalhes
+                        </button>
                         <button
                           type="button"
                           onClick={(event) => {
@@ -574,160 +603,6 @@ export function StacksLocalPage(): JSX.Element {
                 ))}
               </tbody>
             </table>
-          )}
-        </section>
-
-        {selectedStack && (
-          <section className="card">
-            <h2>Detalhes da stack</h2>
-            <div className="details-grid">
-              <div>
-                <strong>ID</strong>
-                <span>{selectedStack.id}</span>
-              </div>
-              <div>
-                <strong>Versão atual</strong>
-                <span>{selectedStack.currentVersion ?? 'n/a'}</span>
-              </div>
-              <div>
-                <strong>Atualizada em</strong>
-                <span>{formatDate(selectedStack.updatedAt)}</span>
-              </div>
-            </div>
-            <div className="template-preview">
-              <strong>Template atual</strong>
-              <pre>{selectedStack.composeTemplate}</pre>
-            </div>
-          </section>
-        )}
-
-        <section className="card">
-          <h2>Deploy unificado + preview</h2>
-          {instancesError && <div className="inline-alert">{instancesError}</div>}
-          {versionsError && <div className="inline-alert">{versionsError}</div>}
-          {deployError && <div className="inline-alert">{deployError}</div>}
-          {!selectedStack ? (
-            <div className="empty-state">Selecione uma stack para iniciar um deploy.</div>
-          ) : instances.length === 0 ? (
-            <div className="empty-state">Cadastre instâncias antes de iniciar o deploy.</div>
-          ) : (
-            <>
-              <div className="deploy-grid">
-                <div>
-                  <strong>Instâncias alvo</strong>
-                  <div className="instance-list">
-                    {instances.map((instance) => {
-                      const isSelected = deploySelection.includes(instance.id);
-                      return (
-                        <label key={instance.id} className={`instance-row ${isSelected ? 'selected' : ''}`}>
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleDeployInstance(instance.id)}
-                          />
-                          <span>
-                            {instance.name} ({instance.environment})
-                          </span>
-                          <span className="pill">{deployTargetVersion || selectedStack.currentVersion || 'n/a'}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-                <div className="deploy-controls">
-                  <label>
-                    Target version
-                    <select
-                      value={deployTargetVersion}
-                      onChange={(event) => setDeployTargetVersion(event.target.value)}
-                    >
-                      <option value="">Usar versão atual</option>
-                      {versionOptions.map((version) => (
-                        <option key={version} value={version}>
-                          {version}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Usuário solicitante
-                    <input
-                      value={deployUserId}
-                      onChange={(event) => setDeployUserId(event.target.value)}
-                      placeholder="usuario@xpory.io"
-                    />
-                  </label>
-                  <label className="inline">
-                    Dry-run
-                    <input
-                      type="checkbox"
-                      checked={deployDryRun}
-                      onChange={(event) => setDeployDryRun(event.target.checked)}
-                    />
-                  </label>
-                  <div className="form-actions">
-                    <button type="button" onClick={handlePreview} disabled={previewLoading}>
-                      {previewLoading ? 'Gerando...' : 'Gerar preview'}
-                    </button>
-                    <button type="button" className="secondary" onClick={handleDeploy} disabled={deployLoading}>
-                      {deployLoading ? 'Executando...' : 'Executar deploy'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-              {previewResults.length > 0 && (
-                <div className="preview-grid">
-                  {previewResults.map((preview) => (
-                    <div key={preview.instanceId} className="preview-card">
-                      <h3>
-                        Preview {instances.find((instance) => instance.id === preview.instanceId)?.name ?? preview.instanceId}
-                      </h3>
-                      <div className="preview-meta">
-                        <span className={`pill ${preview.isValid ? 'pill-valid' : 'pill-warning'}`}>
-                          {preview.isValid ? 'Valido' : 'Com pendencias'}
-                        </span>
-                        {preview.missingVariables.length > 0 && (
-                          <span className="pill pill-warning">Faltando: {preview.missingVariables.join(', ')}</span>
-                        )}
-                        {preview.unknownVariables.length > 0 && (
-                          <span className="pill pill-warning">Desconhecidas: {preview.unknownVariables.join(', ')}</span>
-                        )}
-                      </div>
-                      <pre>{preview.resolvedTemplate}</pre>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {deployResults.length > 0 && (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Instância</th>
-                      <th>Status</th>
-                      <th>Mensagem</th>
-                      <th>Rollback</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {deployResults.map((result) => (
-                      <tr key={result.instanceId}>
-                        <td>{instances.find((instance) => instance.id === result.instanceId)?.name ?? result.instanceId}</td>
-                        <td>
-                          <span className={`pill pill-${result.status}`}>{result.status}</span>
-                        </td>
-                        <td>
-                          {result.message}
-                          {result.errors.length > 0 && (
-                            <div className="stack-description">{result.errors.join(' | ')}</div>
-                          )}
-                        </td>
-                        <td>{result.rollbackApplied ? 'Sim' : 'Não'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </>
           )}
         </section>
       </div>
@@ -781,6 +656,185 @@ export function StacksLocalPage(): JSX.Element {
             Cancelar
           </button>
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={isDetailsOpen}
+        title={selectedStack ? `Detalhes: ${selectedStack.name}` : 'Detalhes da stack'}
+        onClose={closeDetails}
+      >
+        {!selectedStack ? (
+          <div className="empty-state">Selecione uma stack para visualizar detalhes.</div>
+        ) : (
+          <div className="stack-details-modal">
+            <div className="stack-details-tabs">
+              <button
+                type="button"
+                className={`stack-details-tab${detailsTab === 'details' ? ' active' : ''}`}
+                onClick={() => setDetailsTab('details')}
+              >
+                Detalhes
+              </button>
+              <button
+                type="button"
+                className={`stack-details-tab${detailsTab === 'deploy' ? ' active' : ''}`}
+                onClick={() => setDetailsTab('deploy')}
+              >
+                Deploy & Preview
+              </button>
+            </div>
+
+            {detailsTab === 'details' ? (
+              <>
+                <div className="details-grid">
+                  <div>
+                    <strong>ID</strong>
+                    <span>{selectedStack.id}</span>
+                  </div>
+                  <div>
+                    <strong>Versão atual</strong>
+                    <span>{selectedStack.currentVersion ?? 'n/a'}</span>
+                  </div>
+                  <div>
+                    <strong>Atualizada em</strong>
+                    <span>{formatDate(selectedStack.updatedAt)}</span>
+                  </div>
+                </div>
+                <div className="template-preview">
+                  <strong>Template atual</strong>
+                  <pre>{selectedStack.composeTemplate}</pre>
+                </div>
+              </>
+            ) : (
+              <>
+                {instancesError && <div className="inline-alert">{instancesError}</div>}
+                {versionsError && <div className="inline-alert">{versionsError}</div>}
+                {deployError && <div className="inline-alert">{deployError}</div>}
+                {instances.length === 0 ? (
+                  <div className="empty-state">Cadastre instâncias antes de iniciar o deploy.</div>
+                ) : (
+                  <>
+                    <div className="deploy-grid">
+                      <div>
+                        <strong>Instâncias alvo</strong>
+                        <div className="instance-list">
+                          {instances.map((instance) => {
+                            const isSelected = deploySelection.includes(instance.id);
+                            return (
+                              <label key={instance.id} className={`instance-row ${isSelected ? 'selected' : ''}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleDeployInstance(instance.id)}
+                                />
+                                <span>
+                                  {instance.name} ({instance.environment})
+                                </span>
+                                <span className="pill">{deployTargetVersion || selectedStack.currentVersion || 'n/a'}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <div className="deploy-controls">
+                        <label>
+                          Target version
+                          <select
+                            value={deployTargetVersion}
+                            onChange={(event) => setDeployTargetVersion(event.target.value)}
+                          >
+                            <option value="">Usar versão atual</option>
+                            {versionOptions.map((version) => (
+                              <option key={version} value={version}>
+                                {version}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label>
+                          Usuário solicitante
+                          <input
+                            value={deployUserId}
+                            onChange={(event) => setDeployUserId(event.target.value)}
+                            placeholder="usuario@xpory.io"
+                          />
+                        </label>
+                        <label className="inline">
+                          Dry-run
+                          <input
+                            type="checkbox"
+                            checked={deployDryRun}
+                            onChange={(event) => setDeployDryRun(event.target.checked)}
+                          />
+                        </label>
+                        <div className="form-actions">
+                          <button type="button" onClick={handlePreview} disabled={previewLoading}>
+                            {previewLoading ? 'Gerando...' : 'Gerar preview'}
+                          </button>
+                          <button type="button" className="secondary" onClick={handleDeploy} disabled={deployLoading}>
+                            {deployLoading ? 'Executando...' : 'Executar deploy'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    {previewResults.length > 0 && (
+                      <div className="preview-grid">
+                        {previewResults.map((preview) => (
+                          <div key={preview.instanceId} className="preview-card">
+                            <h3>
+                              Preview {instances.find((instance) => instance.id === preview.instanceId)?.name ?? preview.instanceId}
+                            </h3>
+                            <div className="preview-meta">
+                              <span className={`pill ${preview.isValid ? 'pill-valid' : 'pill-warning'}`}>
+                                {preview.isValid ? 'Valido' : 'Com pendencias'}
+                              </span>
+                              {preview.missingVariables.length > 0 && (
+                                <span className="pill pill-warning">Faltando: {preview.missingVariables.join(', ')}</span>
+                              )}
+                              {preview.unknownVariables.length > 0 && (
+                                <span className="pill pill-warning">Desconhecidas: {preview.unknownVariables.join(', ')}</span>
+                              )}
+                            </div>
+                            <pre>{preview.resolvedTemplate}</pre>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {deployResults.length > 0 && (
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Instância</th>
+                            <th>Status</th>
+                            <th>Mensagem</th>
+                            <th>Rollback</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {deployResults.map((result) => (
+                            <tr key={result.instanceId}>
+                              <td>{instances.find((instance) => instance.id === result.instanceId)?.name ?? result.instanceId}</td>
+                              <td>
+                                <span className={`pill pill-${result.status}`}>{result.status}</span>
+                              </td>
+                              <td>
+                                {result.message}
+                                {result.errors.length > 0 && (
+                                  <div className="stack-description">{result.errors.join(' | ')}</div>
+                                )}
+                              </td>
+                              <td>{result.rollbackApplied ? 'Sim' : 'Não'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </Modal>
 
       <Modal isOpen={isVersionPromptOpen} title="Nova versão obrigatória" onClose={cancelVersionPrompt}>
