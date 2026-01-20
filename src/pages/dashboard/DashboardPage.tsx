@@ -9,6 +9,7 @@ import {
   InventoryStack,
   InventorySummary,
 } from '../../services/inventory';
+import { fetchStacksLocal } from '../../services/stacksLocal';
 import {
   fetchStackRegistryImages,
   runRegistry,
@@ -45,6 +46,7 @@ export function DashboardPage(): JSX.Element {
   const [auditRuns, setAuditRuns] = useState<AuditRun[]>([]);
   const [digestOnlyFilter, setDigestOnlyFilter] = useState(false);
   const [showRemoved, setShowRemoved] = useState(false);
+  const [globalOnly, setGlobalOnly] = useState(false);
   const [registryImages, setRegistryImages] = useState<RegistryImageState[]>([]);
   const [registryLoading, setRegistryLoading] = useState(false);
   const [registryError, setRegistryError] = useState<string | null>(null);
@@ -65,12 +67,23 @@ export function DashboardPage(): JSX.Element {
     setLoading(true);
     setError(null);
     try {
-      const [stacksResult, summaryResult, auditRunsResult] = await Promise.all([
+      const [stacksResult, summaryResult, auditRunsResult, stacksLocalResult] = await Promise.all([
         fetchInventoryStacks(showRemoved),
         fetchInventorySummary(),
         fetchAuditRuns(8),
+        globalOnly ? fetchStacksLocal() : Promise.resolve([]),
       ]);
-      setStacks(stacksResult);
+      if (globalOnly) {
+        const globalNames = new Set(
+          (stacksLocalResult ?? []).map((stack) => stack.name.toLowerCase()),
+        );
+        const filteredStacks = stacksResult.filter((stack) =>
+          globalNames.has(stack.name.toLowerCase()),
+        );
+        setStacks(filteredStacks);
+      } else {
+        setStacks(stacksResult);
+      }
       setSummary(summaryResult);
       setAuditRuns(auditRunsResult);
     } catch (err) {
@@ -83,7 +96,7 @@ export function DashboardPage(): JSX.Element {
 
   useEffect(() => {
     void loadData();
-  }, [showRemoved]);
+  }, [showRemoved, globalOnly]);
 
   const stackRows = useMemo<StackRow[]>(() => {
     return stacks.map((stack) => ({
@@ -100,6 +113,12 @@ export function DashboardPage(): JSX.Element {
       removedAt: stack.removedAt,
     }));
   }, [stacks]);
+
+  useEffect(() => {
+    if (selected && !stackRows.some((row) => row.id === selected.id)) {
+      setSelected(null);
+    }
+  }, [stackRows, selected]);
 
   const instanceOptions = useMemo(() => {
     const names = new Set<string>();
@@ -218,14 +237,25 @@ export function DashboardPage(): JSX.Element {
     setRefreshing(true);
     setError(null);
     try {
-      const [auditRunsResult, summaryResult, stacksResult] = await Promise.all([
+      const [auditRunsResult, summaryResult, stacksResult, stacksLocalResult] = await Promise.all([
         fetchAuditRuns(8),
         fetchInventorySummary(),
         fetchInventoryStacks(showRemoved),
+        globalOnly ? fetchStacksLocal() : Promise.resolve([]),
       ]);
       setAuditRuns(auditRunsResult);
       setSummary(summaryResult);
-      setStacks(stacksResult);
+      if (globalOnly) {
+        const globalNames = new Set(
+          (stacksLocalResult ?? []).map((stack) => stack.name.toLowerCase()),
+        );
+        const filteredStacks = stacksResult.filter((stack) =>
+          globalNames.has(stack.name.toLowerCase()),
+        );
+        setStacks(filteredStacks);
+      } else {
+        setStacks(stacksResult);
+      }
     } catch (err) {
       void err;
       setError('Não foi possível sincronizar o histórico.');
@@ -310,6 +340,14 @@ export function DashboardPage(): JSX.Element {
       title="Dashboard"
       headerAction={
         <>
+          <label className="filter-toggle header-toggle">
+            <input
+              type="checkbox"
+              checked={globalOnly}
+              onChange={(event) => setGlobalOnly(event.target.checked)}
+            />
+            Apenas Stacks Globais
+          </label>
           <button type="button" className="header-button" onClick={handleRefresh} disabled={refreshing}>
             {refreshing ? 'Atualizando...' : 'Atualizar dados'}
           </button>
