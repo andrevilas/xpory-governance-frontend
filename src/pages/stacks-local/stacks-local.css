@@ -128,6 +128,30 @@
   margin-bottom: 16px;
 }
 
+.stack-details-modal .stack-details-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.stack-details-modal .stack-details-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.stack-details-modal .stack-details-subtitle {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
 .stacks-local-page .stack-details-tab,
 .stack-details-modal .stack-details-tab {
   border: 1px solid #e2e8f0;

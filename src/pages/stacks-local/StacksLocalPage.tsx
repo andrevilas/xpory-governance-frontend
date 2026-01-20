@@ -667,6 +667,15 @@ export function StacksLocalPage(): JSX.Element {
           <div className="empty-state">Selecione uma stack para visualizar detalhes.</div>
         ) : (
           <div className="stack-details-modal">
+            <div className="stack-details-header">
+              <div>
+                <div className="stack-details-name">{selectedStack.name}</div>
+                <div className="stack-details-subtitle">Stack selecionada</div>
+              </div>
+              <span className="pill">
+                {selectedStack.currentVersion ?? 'n/a'}
+              </span>
+            </div>
             <div className="stack-details-tabs">
               <button
                 type="button"
