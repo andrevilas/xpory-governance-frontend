@@ -219,6 +219,17 @@ export function UsersPage(): JSX.Element {
         roles={roles.length ? roles : ['admin_master', 'admin', 'operator', 'viewer']}
         value={formState}
         error={error}
+        summary={
+          editingUser ? (
+            <div className="modal-summary">
+              <div>
+                <div className="modal-summary-title">{editingUser.name ?? editingUser.email}</div>
+                <div className="modal-summary-subtitle">{editingUser.email}</div>
+              </div>
+              <span className="pill">{roleLabels[editingUser.role] ?? editingUser.role}</span>
+            </div>
+          ) : null
+        }
         onChange={setFormState}
         onClose={closeModal}
         onSave={handleSave}

@@ -83,6 +83,11 @@ export function InstancesPage(): JSX.Element {
     [instances, selectedId],
   );
 
+  const editingInstance = useMemo(
+    () => instances.find((instance) => instance.id === editingId) ?? null,
+    [instances, editingId],
+  );
+
   const selectedStack = useMemo(
     () => stacks.find((stack) => stack.id === selectedStackId) ?? null,
     [stacks, selectedStackId],
@@ -450,6 +455,15 @@ export function InstancesPage(): JSX.Element {
         title={editingId ? 'Editar instância' : 'Nova instância'}
         onClose={closeModal}
       >
+        {editingInstance && (
+          <div className="modal-summary">
+            <div>
+              <div className="modal-summary-title">{editingInstance.name}</div>
+              <div className="modal-summary-subtitle">{editingInstance.environment}</div>
+            </div>
+            <span className="pill">{editingInstance.baseUrl}</span>
+          </div>
+        )}
         {error && <div className="inline-alert">{error}</div>}
         <div className="form-grid">
           <label>
@@ -525,6 +539,15 @@ export function InstancesPage(): JSX.Element {
         title={`Stacks globais${selectedInstance ? ` · ${selectedInstance.name}` : ''}`}
         onClose={closeStacksModal}
       >
+        {selectedInstance && (
+          <div className="modal-summary">
+            <div>
+              <div className="modal-summary-title">{selectedInstance.name}</div>
+              <div className="modal-summary-subtitle">{selectedInstance.environment}</div>
+            </div>
+            <span className="pill">{selectedInstance.baseUrl}</span>
+          </div>
+        )}
         {stacksError && <div className="inline-alert">{stacksError}</div>}
         {stacksLoading ? (
           <div className="empty-state">Carregando...</div>

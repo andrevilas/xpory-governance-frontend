@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import { Modal } from '../ui/Modal';
 import './user-form-modal.css';
 
@@ -15,6 +17,7 @@ type UserFormModalProps = {
   roles: string[];
   value: UserFormState;
   error?: string | null;
+  summary?: ReactNode;
   onChange: (next: UserFormState) => void;
   onClose: () => void;
   onSave: () => void;
@@ -26,6 +29,7 @@ export function UserFormModal({
   roles,
   value,
   error,
+  summary,
   onChange,
   onClose,
   onSave,
@@ -33,6 +37,7 @@ export function UserFormModal({
   return (
     <Modal isOpen={isOpen} title={title} onClose={onClose}>
       <div className="user-form-modal">
+        {summary}
         {error && <div className="inline-alert">{error}</div>}
         <div className="form-grid">
           <label>
