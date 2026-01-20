@@ -28,6 +28,7 @@ type StackRow = {
   instanceName: string | null;
   instanceDrifted: boolean;
   digestDrifted: boolean;
+  removedAt: string | null;
 };
 
 export function DashboardPage(): JSX.Element {
@@ -43,6 +44,7 @@ export function DashboardPage(): JSX.Element {
   const [refreshing, setRefreshing] = useState(false);
   const [auditRuns, setAuditRuns] = useState<AuditRun[]>([]);
   const [digestOnlyFilter, setDigestOnlyFilter] = useState(false);
+  const [showRemoved, setShowRemoved] = useState(false);
   const [registryImages, setRegistryImages] = useState<RegistryImageState[]>([]);
   const [registryLoading, setRegistryLoading] = useState(false);
   const [registryError, setRegistryError] = useState<string | null>(null);
@@ -64,7 +66,7 @@ export function DashboardPage(): JSX.Element {
     setError(null);
     try {
       const [stacksResult, summaryResult, auditRunsResult] = await Promise.all([
-        fetchInventoryStacks(),
+        fetchInventoryStacks(showRemoved),
         fetchInventorySummary(),
         fetchAuditRuns(8),
       ]);
@@ -81,7 +83,7 @@ export function DashboardPage(): JSX.Element {
 
   useEffect(() => {
     void loadData();
-  }, []);
+  }, [showRemoved]);
 
   const stackRows = useMemo<StackRow[]>(() => {
     return stacks.map((stack) => ({
@@ -95,6 +97,7 @@ export function DashboardPage(): JSX.Element {
       instanceName: stack.instanceName,
       instanceDrifted: stack.instanceDrifted,
       digestDrifted: stack.digestDrifted,
+      removedAt: stack.removedAt,
     }));
   }, [stacks]);
 
@@ -218,7 +221,7 @@ export function DashboardPage(): JSX.Element {
       const [auditRunsResult, summaryResult, stacksResult] = await Promise.all([
         fetchAuditRuns(8),
         fetchInventorySummary(),
-        fetchInventoryStacks(),
+        fetchInventoryStacks(showRemoved),
       ]);
       setAuditRuns(auditRunsResult);
       setSummary(summaryResult);
@@ -387,6 +390,14 @@ export function DashboardPage(): JSX.Element {
               />
               Somente digest divergente
             </label>
+            <label className="filter-toggle">
+              <input
+                type="checkbox"
+                checked={showRemoved}
+                onChange={(event) => setShowRemoved(event.target.checked)}
+              />
+              Mostrar removidas
+            </label>
           </div>
           <table className="table" data-testid="inventory.list.table">
             <thead>
@@ -402,7 +413,10 @@ export function DashboardPage(): JSX.Element {
             <tbody>
               {filteredStacks.map((stack) => (
                 <tr key={stack.id}>
-                  <td>{stack.name}</td>
+                  <td>
+                    {stack.name}
+                    {stack.removedAt ? ' (removida)' : ''}
+                  </td>
                   <td>{stack.endpointLabel}</td>
                   <td>
                     <span className={`badge ${stack.status}`}>

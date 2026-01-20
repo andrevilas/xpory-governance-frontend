@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { AppLayout } from '../../components/layout/AppLayout';
 import { fetchInventoryStacks, InventoryStack } from '../../services/inventory';
-import { executeUpdate, fetchCompose, UpdateResponse } from '../../services/update';
+import { executeUpdate, fetchCompose, UpdateResponse, validateCompose, ComposeValidation } from '../../services/update';
 import './update.css';
 
 type UpdateStatus = 'pending' | 'approved' | 'running' | 'success' | 'failed';
@@ -23,6 +23,8 @@ export function UpdatePage(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updateResult, setUpdateResult] = useState<UpdateResponse | null>(null);
+  const [composeValidation, setComposeValidation] = useState<ComposeValidation | null>(null);
+  const [validating, setValidating] = useState(false);
 
   const canApprove = status === 'pending';
   const canExecute = status === 'approved';
@@ -96,15 +98,49 @@ export function UpdatePage(): JSX.Element {
   );
 
   const handleApprove = () => {
-    setStatus('approved');
+    void (async () => {
+      setValidating(true);
+      setError(null);
+      try {
+        const result = await validateCompose(nextCompose);
+        setComposeValidation(result);
+        if (!result.valid) {
+          setStatus('pending');
+          return;
+        }
+        setStatus('approved');
+      } catch (err) {
+        void err;
+        setError('Falha ao validar compose.');
+        setStatus('pending');
+      } finally {
+        setValidating(false);
+      }
+    })();
   };
 
   const handleExecute = async (dryRun: boolean) => {
     if (!selected) {
       return;
     }
-    setStatus('running');
+    setValidating(true);
     setError(null);
+    try {
+      const validation = await validateCompose(nextCompose);
+      setComposeValidation(validation);
+      if (!validation.valid) {
+        setStatus('pending');
+        return;
+      }
+    } catch (err) {
+      void err;
+      setError('Falha ao validar compose.');
+      setStatus('pending');
+      return;
+    } finally {
+      setValidating(false);
+    }
+    setStatus('running');
     try {
       const result = await executeUpdate(
         selected.instanceId,
@@ -140,6 +176,7 @@ export function UpdatePage(): JSX.Element {
               setStatus('pending');
               setUpdateResult(null);
               setError(null);
+              setComposeValidation(null);
             }}
             disabled={loading}
             data-testid="update.policies.table"
@@ -159,7 +196,15 @@ export function UpdatePage(): JSX.Element {
 
         <section className="update-card">
           <h2>Novo compose</h2>
-          <textarea value={nextCompose} onChange={(event) => setNextCompose(event.target.value)} rows={8} />
+          <textarea
+            value={nextCompose}
+            onChange={(event) => {
+              setNextCompose(event.target.value);
+              setStatus('pending');
+              setComposeValidation(null);
+            }}
+            rows={8}
+          />
         </section>
 
         <section className="update-card">
@@ -185,12 +230,12 @@ export function UpdatePage(): JSX.Element {
         <section className="update-card">
           <h2>Fluxo de aprovação</h2>
           <div className="actions">
-            <button type="button" disabled={!canApprove} onClick={handleApprove}>
+            <button type="button" disabled={!canApprove || validating} onClick={handleApprove}>
               Aprovar atualização
             </button>
             <button
               type="button"
-              disabled={!canExecute}
+              disabled={!canExecute || validating}
               onClick={() => handleExecute(true)}
               data-testid="update.deploy.dryrun.toggle"
             >
@@ -198,7 +243,7 @@ export function UpdatePage(): JSX.Element {
             </button>
             <button
               type="button"
-              disabled={!canExecute}
+              disabled={!canExecute || validating}
               onClick={() => handleExecute(false)}
               data-testid="update.deploy.submit.button"
             >
@@ -206,6 +251,13 @@ export function UpdatePage(): JSX.Element {
             </button>
           </div>
           <p className="status">Status atual: {status}</p>
+          {composeValidation && !composeValidation.valid ? (
+            <ul className="error-list">
+              {composeValidation.errors.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          ) : null}
           {updateResult?.errors?.length ? (
             <ul className="error-list">
               {updateResult.errors.map((item) => (

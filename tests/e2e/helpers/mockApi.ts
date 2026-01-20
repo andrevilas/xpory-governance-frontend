@@ -84,6 +84,10 @@ export async function setupApiMocks(page: Page) {
       });
     }
 
+    if (path === '/api/update/validate' && method === 'POST') {
+      return route.fulfill(jsonResponse({ valid: true, errors: [] }));
+    }
+
     if (path.startsWith('/api/stacks/') && path.endsWith('/update') && method === 'POST') {
       const stackId = Number(path.split('/')[3] ?? 0);
       const payload = (request.postDataJSON() ?? {}) as { dryRun?: boolean; endpointId?: number };

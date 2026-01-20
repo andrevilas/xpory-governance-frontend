@@ -10,6 +10,11 @@ export type UpdateResponse = {
   rollbackApplied: boolean;
 };
 
+export type ComposeValidation = {
+  valid: boolean;
+  errors: string[];
+};
+
 export async function fetchCompose(
   instanceId: string | null,
   stackId: number,
@@ -35,5 +40,10 @@ export async function executeUpdate(
   }, {
     params: { endpointId, instanceId: instanceId ?? undefined },
   });
+  return response.data;
+}
+
+export async function validateCompose(composeYaml: string): Promise<ComposeValidation> {
+  const response = await api.post<ComposeValidation>('/update/validate', { composeYaml });
   return response.data;
 }

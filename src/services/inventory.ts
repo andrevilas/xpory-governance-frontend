@@ -24,6 +24,7 @@ export type InventoryStack = {
   drifted: boolean;
   instanceDrifted: boolean;
   digestDrifted: boolean;
+  removedAt: string | null;
 };
 
 export async function fetchInventorySummary(): Promise<InventorySummary> {
@@ -31,8 +32,10 @@ export async function fetchInventorySummary(): Promise<InventorySummary> {
   return response.data;
 }
 
-export async function fetchInventoryStacks(): Promise<InventoryStack[]> {
-  const response = await api.get<InventoryStack[]>('/inventory/stacks');
+export async function fetchInventoryStacks(includeRemoved = false): Promise<InventoryStack[]> {
+  const response = await api.get<InventoryStack[]>('/inventory/stacks', {
+    params: includeRemoved ? { includeRemoved: true } : undefined,
+  });
   return response.data;
 }
 
