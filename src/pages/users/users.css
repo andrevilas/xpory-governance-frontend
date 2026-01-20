@@ -81,3 +81,43 @@
 .users-page .link:hover {
   text-decoration: underline;
 }
+
+.users-page .header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.users-page .form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.users-page .form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+  color: #334155;
+}
+
+.users-page .form-grid input {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: #f8fafc;
+}
+
+.users-page .form-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.users-page .form-actions button.secondary {
+  background: #e2e8f0;
+  color: #0f172a;
+}

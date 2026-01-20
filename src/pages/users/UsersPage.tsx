@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { AppLayout } from '../../components/layout/AppLayout';
+import { Modal } from '../../components/ui/Modal';
 import { UserFormModal, UserFormState } from '../../components/users/UserFormModal';
+import { changePassword } from '../../services/auth';
 import { createUser, listRoles, listUsers, resetUserPassword, updateUser, UserRecord } from '../../services/users';
 import './users.css';
 
@@ -18,6 +20,12 @@ const roleLabels: Record<string, string> = {
   admin: 'Admin',
   operator: 'Operador',
   viewer: 'Viewer',
+};
+
+type PasswordFormState = {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
 };
 
 function formatPhone(phone?: string | null): string {
@@ -43,6 +51,14 @@ export function UsersPage(): JSX.Element {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserRecord | null>(null);
   const [formState, setFormState] = useState<UserFormState>(emptyForm);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [passwordForm, setPasswordForm] = useState<PasswordFormState>({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSaving, setPasswordSaving] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -85,6 +101,18 @@ export function UsersPage(): JSX.Element {
     setIsModalOpen(false);
     setFormState(emptyForm);
     setEditingUser(null);
+  };
+
+  const openPasswordModal = () => {
+    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    setPasswordError(null);
+    setIsPasswordModalOpen(true);
+  };
+
+  const closePasswordModal = () => {
+    setIsPasswordModalOpen(false);
+    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    setPasswordError(null);
   };
 
   const handleSave = async () => {
@@ -144,15 +172,50 @@ export function UsersPage(): JSX.Element {
     }
   };
 
+  const handleChangePassword = async () => {
+    if (!passwordForm.currentPassword.trim() || !passwordForm.newPassword.trim()) {
+      setPasswordError('Preencha a senha atual e a nova senha.');
+      return;
+    }
+    if (passwordForm.newPassword.length < 8) {
+      setPasswordError('A nova senha deve ter ao menos 8 caracteres.');
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError('A confirmação não confere com a nova senha.');
+      return;
+    }
+    setPasswordSaving(true);
+    setPasswordError(null);
+    try {
+      await changePassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+      setToastMessage('Senha atualizada com sucesso.');
+      closePasswordModal();
+    } catch (err) {
+      void err;
+      setPasswordError('Não foi possível atualizar a senha.');
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
+
   const userCount = useMemo(() => users.length, [users]);
 
   return (
     <AppLayout
       title="Usuários"
       headerAction={
-        <button type="button" className="header-button primary" onClick={openCreate}>
-          Novo usuário
-        </button>
+        <div className="header-actions">
+          <button type="button" className="header-button" onClick={openPasswordModal}>
+            Trocar minha senha
+          </button>
+          <button type="button" className="header-button primary" onClick={openCreate}>
+            Novo usuário
+          </button>
+        </div>
       }
     >
       <div className="users-page">
@@ -234,6 +297,50 @@ export function UsersPage(): JSX.Element {
         onClose={closeModal}
         onSave={handleSave}
       />
+
+      <Modal isOpen={isPasswordModalOpen} title="Trocar minha senha" onClose={closePasswordModal}>
+        {passwordError && <div className="inline-alert">{passwordError}</div>}
+        <div className="form-grid">
+          <label>
+            Senha atual
+            <input
+              type="password"
+              value={passwordForm.currentPassword}
+              onChange={(event) =>
+                setPasswordForm((prev) => ({ ...prev, currentPassword: event.target.value }))
+              }
+            />
+          </label>
+          <label>
+            Nova senha
+            <input
+              type="password"
+              value={passwordForm.newPassword}
+              onChange={(event) =>
+                setPasswordForm((prev) => ({ ...prev, newPassword: event.target.value }))
+              }
+            />
+          </label>
+          <label>
+            Confirmar nova senha
+            <input
+              type="password"
+              value={passwordForm.confirmPassword}
+              onChange={(event) =>
+                setPasswordForm((prev) => ({ ...prev, confirmPassword: event.target.value }))
+              }
+            />
+          </label>
+        </div>
+        <div className="form-actions">
+          <button type="button" onClick={handleChangePassword} disabled={passwordSaving}>
+            {passwordSaving ? 'Salvando...' : 'Atualizar senha'}
+          </button>
+          <button type="button" className="secondary" onClick={closePasswordModal} disabled={passwordSaving}>
+            Cancelar
+          </button>
+        </div>
+      </Modal>
     </AppLayout>
   );
 }
