@@ -44,6 +44,14 @@
   margin-bottom: 12px;
 }
 
+.checkbox-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #334155;
+}
+
 .actions button {
   border: none;
   background: #101828;
@@ -107,4 +115,45 @@
   padding: 12px;
   display: flex;
   justify-content: space-between;
+}
+
+.registry-table {
+  margin-top: 12px;
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.registry-table table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+  table-layout: fixed;
+}
+
+.registry-table th,
+.registry-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #eaecf0;
+  font-size: 13px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.registry-table td.mono {
+  font-family: "SFMono-Regular", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  color: #101828;
+  word-break: break-all;
+}
+
+.registry-table td.truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.helper-text {
+  font-size: 12px;
+  color: #475467;
 }

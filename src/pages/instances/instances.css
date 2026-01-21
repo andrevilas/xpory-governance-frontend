@@ -245,6 +245,76 @@
   margin-top: 12px;
 }
 
+.instances-page .registry-panel {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.instances-page .registry-panel h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.instances-page .registry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.instances-page .checkbox-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #334155;
+}
+
+.instances-page .registry-table {
+  margin-top: 12px;
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.instances-page .registry-table table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+  table-layout: fixed;
+}
+
+.instances-page .registry-table th,
+.instances-page .registry-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #eaecf0;
+  font-size: 13px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.instances-page .registry-table td.mono {
+  font-family: "SFMono-Regular", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  color: #101828;
+  word-break: break-all;
+}
+
+.instances-page .registry-table td.truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.instances-page .helper-text {
+  font-size: 12px;
+  color: #475467;
+}
+
 .instances-page .stack-actions button {
   padding: 8px 12px;
   border-radius: 8px;

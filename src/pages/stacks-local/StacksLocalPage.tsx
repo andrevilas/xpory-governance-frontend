@@ -3,7 +3,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { AppLayout } from '../../components/layout/AppLayout';
 import { Modal } from '../../components/ui/Modal';
 import { PageTabs } from '../../components/ui/PageTabs';
+import { fetchInventoryStacks, InventoryStack } from '../../services/inventory';
 import { fetchInstances, PortainerInstance } from '../../services/instances';
+import {
+  fetchStackRegistryImages,
+  runRegistry,
+  updateRegistryStack,
+  RegistryImageState,
+  RegistryUpdateResult,
+} from '../../services/registry';
 import {
   createStackLocal,
   createStackLocalVersion,
@@ -101,6 +109,15 @@ export function StacksLocalPage(): JSX.Element {
   const [pendingVersionSave, setPendingVersionSave] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [detailsTab, setDetailsTab] = useState<'details' | 'deploy'>('details');
+  const [inventoryStacks, setInventoryStacks] = useState<InventoryStack[]>([]);
+  const [selectedInventoryStackId, setSelectedInventoryStackId] = useState<string | null>(null);
+  const [registryImages, setRegistryImages] = useState<RegistryImageState[]>([]);
+  const [registryLoading, setRegistryLoading] = useState(false);
+  const [registryError, setRegistryError] = useState<string | null>(null);
+  const [registryRunLoading, setRegistryRunLoading] = useState(false);
+  const [registryUpdateDryRun, setRegistryUpdateDryRun] = useState(true);
+  const [registryUpdateLoading, setRegistryUpdateLoading] = useState(false);
+  const [registryUpdateResult, setRegistryUpdateResult] = useState<RegistryUpdateResult | null>(null);
 
   const sortedStacks = useMemo(
     () => [...stacks].sort((a, b) => a.name.localeCompare(b.name)),
@@ -132,6 +149,16 @@ export function StacksLocalPage(): JSX.Element {
     () => stacks.find((stack) => stack.id === selectedId) ?? null,
     [stacks, selectedId],
   );
+
+  const matchingInventoryStacks = useMemo(() => {
+    if (!selectedStack) {
+      return [];
+    }
+    const name = selectedStack.name.toLowerCase();
+    return inventoryStacks.filter(
+      (stack) => !stack.removedAt && stack.name.toLowerCase() === name,
+    );
+  }, [inventoryStacks, selectedStack]);
 
   const versionOptions = useMemo(() => {
     const list = [...versions]
@@ -181,6 +208,53 @@ export function StacksLocalPage(): JSX.Element {
     void loadStacks();
     void loadInstances();
   }, []);
+
+  useEffect(() => {
+    const loadInventory = async () => {
+      try {
+        const result = await fetchInventoryStacks();
+        setInventoryStacks(result);
+      } catch (err) {
+        void err;
+        setInventoryStacks([]);
+      }
+    };
+
+    void loadInventory();
+  }, []);
+
+  useEffect(() => {
+    if (matchingInventoryStacks.length === 0) {
+      setSelectedInventoryStackId(null);
+      return;
+    }
+    setSelectedInventoryStackId((prev) => prev ?? matchingInventoryStacks[0]?.id ?? null);
+  }, [matchingInventoryStacks]);
+
+  useEffect(() => {
+    const loadRegistry = async () => {
+      if (!selectedInventoryStackId) {
+        setRegistryImages([]);
+        setRegistryError(null);
+        setRegistryUpdateResult(null);
+        return;
+      }
+      setRegistryLoading(true);
+      setRegistryError(null);
+      try {
+        const result = await fetchStackRegistryImages(selectedInventoryStackId);
+        setRegistryImages(result);
+      } catch (err) {
+        void err;
+        setRegistryError('Não foi possível carregar detalhes de digest.');
+        setRegistryImages([]);
+      } finally {
+        setRegistryLoading(false);
+      }
+    };
+
+    void loadRegistry();
+  }, [selectedInventoryStackId]);
 
   useEffect(() => {
     if (loading || stacks.length === 0) {
@@ -506,6 +580,55 @@ export function StacksLocalPage(): JSX.Element {
     }
   };
 
+  const formatDateTime = (value?: string | null) => {
+    if (!value) {
+      return 'n/a';
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return 'n/a';
+    }
+    return parsed.toLocaleString('pt-BR');
+  };
+
+  const handleRegistryRun = async () => {
+    if (!selectedInventoryStackId) {
+      return;
+    }
+    setRegistryRunLoading(true);
+    setRegistryError(null);
+    try {
+      await runRegistry();
+      const refreshed = await fetchStackRegistryImages(selectedInventoryStackId);
+      setRegistryImages(refreshed);
+    } catch (err) {
+      void err;
+      setRegistryError('Não foi possível atualizar o registry watcher.');
+    } finally {
+      setRegistryRunLoading(false);
+    }
+  };
+
+  const handleRegistryUpdate = async () => {
+    if (!selectedInventoryStackId) {
+      return;
+    }
+    setRegistryUpdateLoading(true);
+    setRegistryError(null);
+    setRegistryUpdateResult(null);
+    try {
+      const result = await updateRegistryStack(selectedInventoryStackId, { dryRun: registryUpdateDryRun });
+      setRegistryUpdateResult(result);
+      const refreshed = await fetchStackRegistryImages(selectedInventoryStackId);
+      setRegistryImages(refreshed);
+    } catch (err) {
+      void err;
+      setRegistryError('Falha ao executar update por digest.');
+    } finally {
+      setRegistryUpdateLoading(false);
+    }
+  };
+
   return (
     <AppLayout
       title="Stacks / Globais"
@@ -712,6 +835,89 @@ export function StacksLocalPage(): JSX.Element {
                 <div className="template-preview">
                   <strong>Template atual</strong>
                   <pre>{selectedStack.composeTemplate}</pre>
+                </div>
+                <div className="registry-panel">
+                  <strong>Digests por instância</strong>
+                  {matchingInventoryStacks.length === 0 ? (
+                    <div className="empty-state">Nenhuma stack encontrada no inventário.</div>
+                  ) : (
+                    <>
+                      <div className="registry-controls">
+                        <label>
+                          Instância
+                          <select
+                            value={selectedInventoryStackId ?? ''}
+                            onChange={(event) => setSelectedInventoryStackId(event.target.value || null)}
+                          >
+                            {matchingInventoryStacks.map((stack) => (
+                              <option key={stack.id} value={stack.id}>
+                                {stack.instanceName ?? 'Instância'} (endpoint {stack.endpointId})
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <div className="registry-actions">
+                          <button type="button" onClick={handleRegistryRun} disabled={registryRunLoading}>
+                            {registryRunLoading ? 'Atualizando registry...' : 'Atualizar registry watcher'}
+                          </button>
+                          <label className="checkbox-toggle">
+                            <input
+                              type="checkbox"
+                              checked={registryUpdateDryRun}
+                              onChange={(event) => setRegistryUpdateDryRun(event.target.checked)}
+                            />
+                            Dry-run
+                          </label>
+                          <button type="button" onClick={handleRegistryUpdate} disabled={registryUpdateLoading}>
+                            {registryUpdateLoading ? 'Executando...' : 'Atualizar por digest'}
+                          </button>
+                        </div>
+                      </div>
+                      {registryError && <div className="inline-alert">{registryError}</div>}
+                      {registryUpdateResult && (
+                        <p className="helper-text">
+                          Resultado: {registryUpdateResult.status}{' '}
+                          {registryUpdateResult.rollbackApplied ? '(rollback aplicado)' : ''}
+                        </p>
+                      )}
+                      {registryLoading ? (
+                        <p>Carregando digest...</p>
+                      ) : registryImages.length === 0 ? (
+                        <p>Nenhuma imagem registrada.</p>
+                      ) : (
+                        <div className="registry-table">
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>Imagem</th>
+                                <th>Tag</th>
+                                <th>Digest em uso (instância)</th>
+                                <th>Digest no registry</th>
+                                <th>Visto em</th>
+                                <th>Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {registryImages.map((image) => (
+                                <tr key={`${image.image}:${image.tag}`}>
+                                  <td className="truncate">{image.image}</td>
+                                  <td>{image.tag}</td>
+                                  <td className="mono">{image.digest ?? 'n/a'}</td>
+                                  <td className="mono">{image.registryDigest ?? 'n/a'}</td>
+                                  <td>{formatDateTime(image.lastSeenAt)}</td>
+                                  <td>
+                                    <span className={`badge ${image.drifted ? 'warn' : 'ok'}`}>
+                                      {image.drifted ? 'Drift' : 'OK'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </>
             ) : (

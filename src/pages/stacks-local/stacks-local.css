@@ -281,6 +281,87 @@
   font-size: 12px;
 }
 
+.stacks-local-page .registry-panel,
+.stack-details-modal .registry-panel {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.stacks-local-page .registry-controls,
+.stack-details-modal .registry-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.stacks-local-page .registry-actions,
+.stack-details-modal .registry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.stacks-local-page .checkbox-toggle,
+.stack-details-modal .checkbox-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #334155;
+}
+
+.stacks-local-page .registry-table,
+.stack-details-modal .registry-table {
+  margin-top: 12px;
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.stacks-local-page .registry-table table,
+.stack-details-modal .registry-table table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+  table-layout: fixed;
+}
+
+.stacks-local-page .registry-table th,
+.stacks-local-page .registry-table td,
+.stack-details-modal .registry-table th,
+.stack-details-modal .registry-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #eaecf0;
+  font-size: 13px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.stacks-local-page .registry-table td.mono,
+.stack-details-modal .registry-table td.mono {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: #101828;
+  word-break: break-all;
+}
+
+.stacks-local-page .registry-table td.truncate,
+.stack-details-modal .registry-table td.truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stacks-local-page .helper-text,
+.stack-details-modal .helper-text {
+  font-size: 12px;
+  color: #475467;
+}
+
 .stacks-local-page .inline-alert,
 .stack-details-modal .inline-alert {
   margin-top: 12px;

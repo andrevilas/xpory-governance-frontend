@@ -305,6 +305,16 @@ export function DashboardPage(): JSX.Element {
 
   const formatStatus = (status: string) => (status === 'success' ? 'OK' : 'Não concluído');
   const statusClass = (status: string) => (status === 'success' ? 'ok' : 'warn');
+  const formatDateTime = (value?: string | null) => {
+    if (!value) {
+      return 'n/a';
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return 'n/a';
+    }
+    return parsed.toLocaleString('pt-BR');
+  };
 
   const handleExportAudit = () => {
     if (filteredAuditResults.length === 0) {
@@ -641,8 +651,9 @@ export function DashboardPage(): JSX.Element {
                       <tr>
                         <th>Imagem</th>
                         <th>Tag</th>
-                        <th>Digest local</th>
-                        <th>Digest registry</th>
+                        <th>Digest em uso (instância)</th>
+                        <th>Digest no registry</th>
+                        <th>Visto em</th>
                         <th>Status</th>
                       </tr>
                     </thead>
@@ -653,6 +664,7 @@ export function DashboardPage(): JSX.Element {
                           <td>{image.tag}</td>
                           <td className="mono">{image.digest ?? 'n/a'}</td>
                           <td className="mono">{image.registryDigest ?? 'n/a'}</td>
+                          <td>{formatDateTime(image.lastSeenAt)}</td>
                           <td>
                             <span className={`badge ${image.drifted ? 'warn' : 'ok'}`}>
                               {image.drifted ? 'Drift' : 'OK'}

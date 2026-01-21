@@ -2,6 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { AppLayout } from '../../components/layout/AppLayout';
 import { fetchInventoryStacks, InventoryStack } from '../../services/inventory';
+import {
+  fetchStackRegistryImages,
+  runRegistry,
+  updateRegistryStack,
+  RegistryImageState,
+  RegistryUpdateResult,
+} from '../../services/registry';
 import { executeUpdate, fetchCompose, UpdateResponse, validateCompose, ComposeValidation } from '../../services/update';
 import './update.css';
 
@@ -25,6 +32,13 @@ export function UpdatePage(): JSX.Element {
   const [updateResult, setUpdateResult] = useState<UpdateResponse | null>(null);
   const [composeValidation, setComposeValidation] = useState<ComposeValidation | null>(null);
   const [validating, setValidating] = useState(false);
+  const [registryImages, setRegistryImages] = useState<RegistryImageState[]>([]);
+  const [registryLoading, setRegistryLoading] = useState(false);
+  const [registryError, setRegistryError] = useState<string | null>(null);
+  const [registryRunLoading, setRegistryRunLoading] = useState(false);
+  const [registryUpdateDryRun, setRegistryUpdateDryRun] = useState(true);
+  const [registryUpdateLoading, setRegistryUpdateLoading] = useState(false);
+  const [registryUpdateResult, setRegistryUpdateResult] = useState<RegistryUpdateResult | null>(null);
 
   const canApprove = status === 'pending';
   const canExecute = status === 'approved';
@@ -71,6 +85,31 @@ export function UpdatePage(): JSX.Element {
     void loadCompose();
   }, [selected]);
 
+  useEffect(() => {
+    const loadRegistry = async () => {
+      if (!selected) {
+        setRegistryImages([]);
+        setRegistryError(null);
+        setRegistryUpdateResult(null);
+        return;
+      }
+      setRegistryLoading(true);
+      setRegistryError(null);
+      try {
+        const result = await fetchStackRegistryImages(selected.id);
+        setRegistryImages(result);
+      } catch (err) {
+        void err;
+        setRegistryError('Não foi possível carregar detalhes de digest.');
+        setRegistryImages([]);
+      } finally {
+        setRegistryLoading(false);
+      }
+    };
+
+    void loadRegistry();
+  }, [selected]);
+
   const diffRows = useMemo<DiffRow[]>(() => {
     const beforeLines = currentCompose.split('\n');
     const afterLines = nextCompose.split('\n');
@@ -96,6 +135,54 @@ export function UpdatePage(): JSX.Element {
     ],
     [updateResult]
   );
+
+  const formatDateTime = (value?: string | null) => {
+    if (!value) {
+      return 'n/a';
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return 'n/a';
+    }
+    return parsed.toLocaleString('pt-BR');
+  };
+
+  const handleRegistryRun = async () => {
+    setRegistryRunLoading(true);
+    setRegistryError(null);
+    try {
+      await runRegistry();
+      if (selected) {
+        const refreshed = await fetchStackRegistryImages(selected.id);
+        setRegistryImages(refreshed);
+      }
+    } catch (err) {
+      void err;
+      setRegistryError('Não foi possível atualizar o registry watcher.');
+    } finally {
+      setRegistryRunLoading(false);
+    }
+  };
+
+  const handleRegistryUpdate = async () => {
+    if (!selected) {
+      return;
+    }
+    setRegistryUpdateLoading(true);
+    setRegistryError(null);
+    setRegistryUpdateResult(null);
+    try {
+      const result = await updateRegistryStack(selected.id, { dryRun: registryUpdateDryRun });
+      setRegistryUpdateResult(result);
+      const refreshed = await fetchStackRegistryImages(selected.id);
+      setRegistryImages(refreshed);
+    } catch (err) {
+      void err;
+      setRegistryError('Falha ao executar update por digest.');
+    } finally {
+      setRegistryUpdateLoading(false);
+    }
+  };
 
   const handleApprove = () => {
     void (async () => {
@@ -177,6 +264,7 @@ export function UpdatePage(): JSX.Element {
               setUpdateResult(null);
               setError(null);
               setComposeValidation(null);
+              setRegistryUpdateResult(null);
             }}
             disabled={loading}
             data-testid="update.policies.table"
@@ -277,6 +365,69 @@ export function UpdatePage(): JSX.Element {
               </div>
             ))}
           </div>
+        </section>
+
+        <section className="update-card">
+          <h2>Digests em uso</h2>
+          <div className="actions">
+            <button type="button" onClick={handleRegistryRun} disabled={registryRunLoading}>
+              {registryRunLoading ? 'Atualizando registry...' : 'Atualizar registry watcher'}
+            </button>
+            <label className="checkbox-toggle">
+              <input
+                type="checkbox"
+                checked={registryUpdateDryRun}
+                onChange={(event) => setRegistryUpdateDryRun(event.target.checked)}
+              />
+              Dry-run
+            </label>
+            <button type="button" onClick={handleRegistryUpdate} disabled={registryUpdateLoading || !selected}>
+              {registryUpdateLoading ? 'Executando...' : 'Atualizar por digest'}
+            </button>
+          </div>
+          {registryError && <div className="inline-alert">{registryError}</div>}
+          {registryUpdateResult && (
+            <p className="helper-text">
+              Resultado: {registryUpdateResult.status}{' '}
+              {registryUpdateResult.rollbackApplied ? '(rollback aplicado)' : ''}
+            </p>
+          )}
+          {registryLoading ? (
+            <p>Carregando digest...</p>
+          ) : registryImages.length === 0 ? (
+            <p>Nenhuma imagem registrada.</p>
+          ) : (
+            <div className="registry-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Imagem</th>
+                    <th>Tag</th>
+                    <th>Digest em uso (instância)</th>
+                    <th>Digest no registry</th>
+                    <th>Visto em</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {registryImages.map((image) => (
+                    <tr key={`${image.image}:${image.tag}`}>
+                      <td className="truncate">{image.image}</td>
+                      <td>{image.tag}</td>
+                      <td className="mono">{image.digest ?? 'n/a'}</td>
+                      <td className="mono">{image.registryDigest ?? 'n/a'}</td>
+                      <td>{formatDateTime(image.lastSeenAt)}</td>
+                      <td>
+                        <span className={`badge ${image.drifted ? 'warn' : 'ok'}`}>
+                          {image.drifted ? 'Drift' : 'OK'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
       </div>
     </AppLayout>
