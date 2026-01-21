@@ -3,10 +3,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { AppLayout } from '../../components/layout/AppLayout';
 import { fetchInventoryStacks, InventoryStack } from '../../services/inventory';
 import {
+  fetchRegistryRuns,
   fetchStackRegistryImages,
   runRegistry,
   updateRegistryStack,
   RegistryImageState,
+  RegistryRun,
   RegistryUpdateResult,
 } from '../../services/registry';
 import { executeUpdate, fetchCompose, UpdateResponse, validateCompose, ComposeValidation } from '../../services/update';
@@ -39,6 +41,7 @@ export function UpdatePage(): JSX.Element {
   const [registryUpdateDryRun, setRegistryUpdateDryRun] = useState(true);
   const [registryUpdateLoading, setRegistryUpdateLoading] = useState(false);
   const [registryUpdateResult, setRegistryUpdateResult] = useState<RegistryUpdateResult | null>(null);
+  const [registryRuns, setRegistryRuns] = useState<RegistryRun[]>([]);
 
   const canApprove = status === 'pending';
   const canExecute = status === 'approved';
@@ -110,6 +113,18 @@ export function UpdatePage(): JSX.Element {
     void loadRegistry();
   }, [selected]);
 
+  useEffect(() => {
+    const loadRuns = async () => {
+      try {
+        const result = await fetchRegistryRuns(10);
+        setRegistryRuns(result);
+      } catch (err) {
+        void err;
+      }
+    };
+    void loadRuns();
+  }, []);
+
   const diffRows = useMemo<DiffRow[]>(() => {
     const beforeLines = currentCompose.split('\n');
     const afterLines = nextCompose.split('\n');
@@ -147,11 +162,15 @@ export function UpdatePage(): JSX.Element {
     return parsed.toLocaleString('pt-BR');
   };
 
+  const lastRegistryRun = registryRuns[0] ?? null;
+
   const handleRegistryRun = async () => {
     setRegistryRunLoading(true);
     setRegistryError(null);
     try {
       await runRegistry();
+      const runs = await fetchRegistryRuns(10);
+      setRegistryRuns(runs);
       if (selected) {
         const refreshed = await fetchStackRegistryImages(selected.id);
         setRegistryImages(refreshed);
@@ -369,6 +388,12 @@ export function UpdatePage(): JSX.Element {
 
         <section className="update-card">
           <h2>Digests em uso</h2>
+          <p className="helper-text">
+            Última execução do registry watcher:{' '}
+            {lastRegistryRun
+              ? `${formatDateTime(lastRegistryRun.createdAt)} · ${lastRegistryRun.status}`
+              : 'n/a'}
+          </p>
           <div className="actions">
             <button type="button" onClick={handleRegistryRun} disabled={registryRunLoading}>
               {registryRunLoading ? 'Atualizando registry...' : 'Atualizar registry watcher'}
@@ -392,6 +417,31 @@ export function UpdatePage(): JSX.Element {
               {registryUpdateResult.rollbackApplied ? '(rollback aplicado)' : ''}
             </p>
           )}
+          {registryUpdateResult?.refreshLog && registryUpdateResult.refreshLog.length > 0 ? (
+            <div className="registry-log">
+              <h4>Log do refresh de imagens</h4>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Imagem</th>
+                    <th>Remoção</th>
+                    <th>Pull</th>
+                    <th>Erros</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {registryUpdateResult.refreshLog.map((entry) => (
+                    <tr key={`${entry.image}:${entry.tag}`}>
+                      <td className="truncate">{entry.image}:{entry.tag}</td>
+                      <td>{entry.removed ? 'OK' : 'Falhou'}</td>
+                      <td>{entry.pulled ? 'OK' : 'Falhou'}</td>
+                      <td className="mono">{entry.errors.length > 0 ? entry.errors.join(' | ') : '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
           {registryLoading ? (
             <p>Carregando digest...</p>
           ) : registryImages.length === 0 ? (

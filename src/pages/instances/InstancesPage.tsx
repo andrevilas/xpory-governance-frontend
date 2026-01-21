@@ -11,10 +11,12 @@ import {
   updateInstance,
 } from '../../services/instances';
 import {
+  fetchRegistryRuns,
   fetchStackRegistryImages,
   runRegistry,
   updateRegistryStack,
   RegistryImageState,
+  RegistryRun,
   RegistryUpdateResult,
 } from '../../services/registry';
 import {
@@ -86,6 +88,7 @@ export function InstancesPage(): JSX.Element {
   const [registryUpdateDryRun, setRegistryUpdateDryRun] = useState(true);
   const [registryUpdateLoading, setRegistryUpdateLoading] = useState(false);
   const [registryUpdateResult, setRegistryUpdateResult] = useState<RegistryUpdateResult | null>(null);
+  const [registryRuns, setRegistryRuns] = useState<RegistryRun[]>([]);
 
   const sortedInstances = useMemo(
     () => [...instances].sort((a, b) => a.name.localeCompare(b.name)),
@@ -201,6 +204,19 @@ export function InstancesPage(): JSX.Element {
 
     void loadInventory();
   }, [selectedInstance]);
+
+  useEffect(() => {
+    const loadRuns = async () => {
+      try {
+        const result = await fetchRegistryRuns(10);
+        setRegistryRuns(result);
+      } catch (err) {
+        void err;
+      }
+    };
+
+    void loadRuns();
+  }, []);
 
   useEffect(() => {
     const loadRegistry = async () => {
@@ -323,12 +339,15 @@ export function InstancesPage(): JSX.Element {
     }
     return parsed.toLocaleString('pt-BR');
   };
+  const lastRegistryRun = registryRuns[0] ?? null;
 
   const handleRegistryRun = async () => {
     setRegistryRunLoading(true);
     setRegistryError(null);
     try {
       await runRegistry();
+      const runs = await fetchRegistryRuns(10);
+      setRegistryRuns(runs);
       if (matchedInventoryStack) {
         const refreshed = await fetchStackRegistryImages(matchedInventoryStack.id);
         setRegistryImages(refreshed);
@@ -793,6 +812,12 @@ export function InstancesPage(): JSX.Element {
                 )}
                 <div className="registry-panel">
                   <h4>Digest da stack</h4>
+                  <p className="helper-text">
+                    Última execução do registry watcher:{' '}
+                    {lastRegistryRun
+                      ? `${formatDateTime(lastRegistryRun.createdAt)} · ${lastRegistryRun.status}`
+                      : 'n/a'}
+                  </p>
                   {!matchedInventoryStack ? (
                     <p className="helper-text">
                       Nenhuma stack encontrada no inventário para esta instância.
@@ -822,6 +847,31 @@ export function InstancesPage(): JSX.Element {
                           {registryUpdateResult.rollbackApplied ? '(rollback aplicado)' : ''}
                         </p>
                       )}
+                      {registryUpdateResult?.refreshLog && registryUpdateResult.refreshLog.length > 0 ? (
+                        <div className="registry-log">
+                          <h5>Log do refresh de imagens</h5>
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>Imagem</th>
+                                <th>Remoção</th>
+                                <th>Pull</th>
+                                <th>Erros</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {registryUpdateResult.refreshLog.map((entry) => (
+                                <tr key={`${entry.image}:${entry.tag}`}>
+                                  <td className="truncate">{entry.image}:{entry.tag}</td>
+                                  <td>{entry.removed ? 'OK' : 'Falhou'}</td>
+                                  <td>{entry.pulled ? 'OK' : 'Falhou'}</td>
+                                  <td className="mono">{entry.errors.length > 0 ? entry.errors.join(' | ') : '-'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : null}
                       {registryLoading ? (
                         <p>Carregando digest...</p>
                       ) : registryImages.length === 0 ? (

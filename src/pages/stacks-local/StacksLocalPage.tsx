@@ -6,10 +6,12 @@ import { PageTabs } from '../../components/ui/PageTabs';
 import { fetchInventoryStacks, InventoryStack } from '../../services/inventory';
 import { fetchInstances, PortainerInstance } from '../../services/instances';
 import {
+  fetchRegistryRuns,
   fetchStackRegistryImages,
   runRegistry,
   updateRegistryStack,
   RegistryImageState,
+  RegistryRun,
   RegistryUpdateResult,
 } from '../../services/registry';
 import {
@@ -118,6 +120,7 @@ export function StacksLocalPage(): JSX.Element {
   const [registryUpdateDryRun, setRegistryUpdateDryRun] = useState(true);
   const [registryUpdateLoading, setRegistryUpdateLoading] = useState(false);
   const [registryUpdateResult, setRegistryUpdateResult] = useState<RegistryUpdateResult | null>(null);
+  const [registryRuns, setRegistryRuns] = useState<RegistryRun[]>([]);
 
   const sortedStacks = useMemo(
     () => [...stacks].sort((a, b) => a.name.localeCompare(b.name)),
@@ -221,6 +224,19 @@ export function StacksLocalPage(): JSX.Element {
     };
 
     void loadInventory();
+  }, []);
+
+  useEffect(() => {
+    const loadRuns = async () => {
+      try {
+        const result = await fetchRegistryRuns(10);
+        setRegistryRuns(result);
+      } catch (err) {
+        void err;
+      }
+    };
+
+    void loadRuns();
   }, []);
 
   useEffect(() => {
@@ -590,6 +606,7 @@ export function StacksLocalPage(): JSX.Element {
     }
     return parsed.toLocaleString('pt-BR');
   };
+  const lastRegistryRun = registryRuns[0] ?? null;
 
   const handleRegistryRun = async () => {
     if (!selectedInventoryStackId) {
@@ -599,6 +616,8 @@ export function StacksLocalPage(): JSX.Element {
     setRegistryError(null);
     try {
       await runRegistry();
+      const runs = await fetchRegistryRuns(10);
+      setRegistryRuns(runs);
       const refreshed = await fetchStackRegistryImages(selectedInventoryStackId);
       setRegistryImages(refreshed);
     } catch (err) {
@@ -838,6 +857,12 @@ export function StacksLocalPage(): JSX.Element {
                 </div>
                 <div className="registry-panel">
                   <strong>Digests por instância</strong>
+                  <p className="helper-text">
+                    Última execução do registry watcher:{' '}
+                    {lastRegistryRun
+                      ? `${formatDateTime(lastRegistryRun.createdAt)} · ${lastRegistryRun.status}`
+                      : 'n/a'}
+                  </p>
                   {matchingInventoryStacks.length === 0 ? (
                     <div className="empty-state">Nenhuma stack encontrada no inventário.</div>
                   ) : (
@@ -880,6 +905,31 @@ export function StacksLocalPage(): JSX.Element {
                           {registryUpdateResult.rollbackApplied ? '(rollback aplicado)' : ''}
                         </p>
                       )}
+                      {registryUpdateResult?.refreshLog && registryUpdateResult.refreshLog.length > 0 ? (
+                        <div className="registry-log">
+                          <h5>Log do refresh de imagens</h5>
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>Imagem</th>
+                                <th>Remoção</th>
+                                <th>Pull</th>
+                                <th>Erros</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {registryUpdateResult.refreshLog.map((entry) => (
+                                <tr key={`${entry.image}:${entry.tag}`}>
+                                  <td className="truncate">{entry.image}:{entry.tag}</td>
+                                  <td>{entry.removed ? 'OK' : 'Falhou'}</td>
+                                  <td>{entry.pulled ? 'OK' : 'Falhou'}</td>
+                                  <td className="mono">{entry.errors.length > 0 ? entry.errors.join(' | ') : '-'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : null}
                       {registryLoading ? (
                         <p>Carregando digest...</p>
                       ) : registryImages.length === 0 ? (

@@ -5,6 +5,14 @@ export type RegistryRunResult = {
   drifted: number;
 };
 
+export type RegistryRun = {
+  id: string;
+  status: string;
+  stacksCount: number;
+  error: string | null;
+  createdAt: string;
+};
+
 export type RegistryImageState = {
   stackId: string;
   instanceId: string;
@@ -24,10 +32,24 @@ export type RegistryUpdateResult = {
   status: 'success' | 'failed' | 'dry_run';
   errors: string[];
   rollbackApplied: boolean;
+  refreshLog?: Array<{
+    image: string;
+    tag: string;
+    removed: boolean;
+    pulled: boolean;
+    errors: string[];
+  }>;
 };
 
 export async function runRegistry(): Promise<RegistryRunResult> {
   const response = await api.post<RegistryRunResult>('/registry/run');
+  return response.data;
+}
+
+export async function fetchRegistryRuns(limit = 10): Promise<RegistryRun[]> {
+  const response = await api.get<RegistryRun[]>('/registry/runs', {
+    params: { limit },
+  });
   return response.data;
 }
 

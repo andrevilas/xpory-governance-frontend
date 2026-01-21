@@ -11,10 +11,12 @@ import {
 } from '../../services/inventory';
 import { fetchStacksLocal } from '../../services/stacksLocal';
 import {
+  fetchRegistryRuns,
   fetchStackRegistryImages,
   runRegistry,
   updateRegistryStack,
   RegistryImageState,
+  RegistryRun,
   RegistryUpdateResult,
 } from '../../services/registry';
 import './dashboard.css';
@@ -54,6 +56,7 @@ export function DashboardPage(): JSX.Element {
   const [registryUpdateDryRun, setRegistryUpdateDryRun] = useState(true);
   const [registryUpdateLoading, setRegistryUpdateLoading] = useState(false);
   const [registryUpdateResult, setRegistryUpdateResult] = useState<RegistryUpdateResult | null>(null);
+  const [registryRuns, setRegistryRuns] = useState<RegistryRun[]>([]);
   const [errorDetail, setErrorDetail] = useState<{ title: string; message: string; meta: string } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -176,6 +179,18 @@ export function DashboardPage(): JSX.Element {
     void loadRegistry();
   }, [selected]);
 
+  useEffect(() => {
+    const loadRuns = async () => {
+      try {
+        const result = await fetchRegistryRuns(10);
+        setRegistryRuns(result);
+      } catch (err) {
+        void err;
+      }
+    };
+    void loadRuns();
+  }, []);
+
   const filteredStacks = useMemo(
     () => {
       let filtered = stackRows.filter((row) => row.name.toLowerCase().includes(search.toLowerCase()));
@@ -269,6 +284,8 @@ export function DashboardPage(): JSX.Element {
     setError(null);
     try {
       await runRegistry();
+      const runs = await fetchRegistryRuns(10);
+      setRegistryRuns(runs);
       await loadData();
       if (selected) {
         const result = await fetchStackRegistryImages(selected.id);
@@ -315,6 +332,7 @@ export function DashboardPage(): JSX.Element {
     }
     return parsed.toLocaleString('pt-BR');
   };
+  const lastRegistryRun = registryRuns[0] ?? null;
 
   const handleExportAudit = () => {
     if (filteredAuditResults.length === 0) {
@@ -620,6 +638,12 @@ export function DashboardPage(): JSX.Element {
 
             <section className="registry-results">
               <h4>Digest registry</h4>
+              <p className="helper-text">
+                Última execução do registry watcher:{' '}
+                {lastRegistryRun
+                  ? `${formatDateTime(lastRegistryRun.createdAt)} · ${lastRegistryRun.status}`
+                  : 'n/a'}
+              </p>
               <div className="table-tools">
                 <label className="filter-toggle">
                   <input
@@ -640,6 +664,31 @@ export function DashboardPage(): JSX.Element {
                   {registryUpdateResult.rollbackApplied ? '(rollback aplicado)' : ''}
                 </p>
               )}
+              {registryUpdateResult?.refreshLog && registryUpdateResult.refreshLog.length > 0 ? (
+                <div className="registry-log">
+                  <h5>Log do refresh de imagens</h5>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Imagem</th>
+                        <th>Remoção</th>
+                        <th>Pull</th>
+                        <th>Erros</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {registryUpdateResult.refreshLog.map((entry) => (
+                        <tr key={`${entry.image}:${entry.tag}`}>
+                          <td className="truncate">{entry.image}:{entry.tag}</td>
+                          <td>{entry.removed ? 'OK' : 'Falhou'}</td>
+                          <td>{entry.pulled ? 'OK' : 'Falhou'}</td>
+                          <td className="mono">{entry.errors.length > 0 ? entry.errors.join(' | ') : '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
               {registryLoading ? (
                 <p>Carregando digest...</p>
               ) : registryImages.length === 0 ? (
