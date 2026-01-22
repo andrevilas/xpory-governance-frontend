@@ -87,7 +87,7 @@ export function InstancesPage(): JSX.Element {
   const [mappingLoading, setMappingLoading] = useState(false);
   const [mappingError, setMappingError] = useState<string | null>(null);
   const [mappingSuccess, setMappingSuccess] = useState<string | null>(null);
-  const [mappingUpdateCompose, setMappingUpdateCompose] = useState(true);
+  const [confirmVariablesOpen, setConfirmVariablesOpen] = useState(false);
   const [inventoryStacks, setInventoryStacks] = useState<InventoryStack[]>([]);
   const [registryImages, setRegistryImages] = useState<RegistryImageState[]>([]);
   const [registryLoading, setRegistryLoading] = useState(false);
@@ -451,7 +451,7 @@ export function InstancesPage(): JSX.Element {
     setCreateStackError(null);
     setMappingError(null);
     setMappingSuccess(null);
-    setMappingUpdateCompose(true);
+    setConfirmVariablesOpen(false);
   };
 
   const loadStackVariables = async (stackId: string, instanceId: string) => {
@@ -683,19 +683,39 @@ export function InstancesPage(): JSX.Element {
         selectedRemoteStack.id,
         selectedRemoteStack.endpointId,
       );
-      if (mappingUpdateCompose) {
-        await updateStackLocal(selectedStackId, { composeTemplate: compose });
-        const stacksResult = await fetchStacksLocal();
-        setStacks(stacksResult);
-      }
       const importResult = await importVariablesForStack(selectedStackId, compose, selectedInstance.id);
       await loadStackVariables(selectedStackId, selectedInstance.id);
       setMappingSuccess(
-        `Mapeamento concluído. ${importResult.created} variáveis importadas, ${importResult.valuesApplied} valores aplicados.`,
+        `Importação concluída. ${importResult.created} variáveis importadas, ${importResult.valuesApplied} valores aplicados.`,
       );
     } catch (err) {
       void err;
-      setMappingError('Falha ao mapear stack remota para a stack global.');
+      setMappingError('Falha ao importar variáveis da stack remota.');
+    } finally {
+      setMappingLoading(false);
+    }
+  };
+
+  const handleUpdateComposeFromRemote = async () => {
+    if (!selectedRemoteStack || !selectedInstance || !selectedStackId) {
+      return;
+    }
+    setMappingLoading(true);
+    setMappingError(null);
+    setMappingSuccess(null);
+    try {
+      const compose = await fetchInstanceStackCompose(
+        selectedInstance.id,
+        selectedRemoteStack.id,
+        selectedRemoteStack.endpointId,
+      );
+      await updateStackLocal(selectedStackId, { composeTemplate: compose });
+      const stacksResult = await fetchStacksLocal();
+      setStacks(stacksResult);
+      setMappingSuccess('Compose atualizado com sucesso a partir da stack remota.');
+    } catch (err) {
+      void err;
+      setMappingError('Falha ao atualizar compose da stack global.');
     } finally {
       setMappingLoading(false);
     }
@@ -923,15 +943,6 @@ export function InstancesPage(): JSX.Element {
         onClose={closeStacksModal}
         className="stacks-modal"
       >
-        {selectedInstance && (
-          <div className="modal-summary">
-            <div>
-              <div className="modal-summary-title">{selectedInstance.name}</div>
-              <div className="modal-summary-subtitle">{selectedInstance.environment}</div>
-            </div>
-            <span className="pill">{selectedInstance.baseUrl}</span>
-          </div>
-        )}
         {stacksError && <div className="inline-alert">{stacksError}</div>}
         {mappingError && <div className="inline-alert">{mappingError}</div>}
         {mappingSuccess && <div className="inline-warning">{mappingSuccess}</div>}
@@ -976,15 +987,10 @@ export function InstancesPage(): JSX.Element {
                               {stack.name} (endpoint {stack.endpointId})
                             </option>
                           ))
-                        )}
-                      </select>
-                    </label>
-                  </div>
-                  {selectedRemoteStack && (
-                    <div className="stack-hint">
-                      Endpoint {selectedRemoteStack.endpointId} · ID {selectedRemoteStack.id}
-                    </div>
-                  )}
+                      )}
+                    </select>
+                  </label>
+                </div>
                 </div>
 
                 <div className="stack-panel">
@@ -1011,26 +1017,26 @@ export function InstancesPage(): JSX.Element {
                         )}
                       </select>
                     </label>
-                    <label className="checkbox-toggle">
-                      <input
-                        type="checkbox"
-                        checked={mappingUpdateCompose}
-                        onChange={(event) => setMappingUpdateCompose(event.target.checked)}
-                      />
-                      Atualizar compose da stack global com o remoto
-                    </label>
                   </div>
                   <div className="stack-actions">
                     <button
                       type="button"
-                      onClick={() => void handleMapRemoteToGlobal()}
+                      onClick={() => void handleUpdateComposeFromRemote()}
                       disabled={!selectedRemoteStack || !selectedStackId || mappingLoading}
                     >
-                      {mappingLoading ? 'Mapeando...' : 'Mapear & importar variáveis'}
+                      {mappingLoading ? 'Atualizando...' : 'Atualizar compose da global'}
                     </button>
                     <button
                       type="button"
                       className="secondary"
+                      onClick={() => void handleMapRemoteToGlobal()}
+                      disabled={!selectedRemoteStack || !selectedStackId || mappingLoading}
+                    >
+                      {mappingLoading ? 'Importando...' : 'Importar variáveis do remoto'}
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost"
                       onClick={() => void openCreateStackForm(true)}
                       disabled={!selectedRemoteStack}
                     >
@@ -1168,61 +1174,7 @@ export function InstancesPage(): JSX.Element {
                       </select>
                     </label>
                   </div>
-                  <div className="stack-actions">
-                    <button type="button" onClick={() => void openCreateStackForm(false)}>
-                      Nova stack global
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => void openCreateStackForm(true)}
-                      disabled={!selectedRemoteStack}
-                    >
-                      Criar global a partir da remota
-                    </button>
-                  </div>
                 </div>
-
-                {createStackOpen && (
-                  <div className="create-stack-card">
-                    <h3>Nova stack global</h3>
-                    {createStackError && <div className="inline-alert">{createStackError}</div>}
-                    {stackNameConflict && (
-                      <div className="inline-warning">
-                        Já existe uma stack global com este nome. Uma nova stack será criada mesmo assim.
-                      </div>
-                    )}
-                    <div className="form-grid">
-                      <label>
-                        Nome
-                        <input value={newStackName} onChange={(event) => setNewStackName(event.target.value)} />
-                      </label>
-                      <label>
-                        Descrição
-                        <input
-                          value={newStackDescription}
-                          onChange={(event) => setNewStackDescription(event.target.value)}
-                        />
-                      </label>
-                    </div>
-                    <label className="full-width">
-                      Compose template
-                      <textarea
-                        value={newStackCompose}
-                        onChange={(event) => setNewStackCompose(event.target.value)}
-                        rows={8}
-                      />
-                    </label>
-                    <div className="form-actions">
-                      <button type="button" onClick={handleCreateStack} disabled={creatingStack}>
-                        Criar stack global
-                      </button>
-                      <button type="button" className="secondary" onClick={() => setCreateStackOpen(false)}>
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                )}
 
                 {selectedStackId && (
                   <div className="stack-vars">
@@ -1270,7 +1222,11 @@ export function InstancesPage(): JSX.Element {
                   </div>
                 )}
                 <div className="form-actions">
-                  <button type="button" onClick={handleSaveStackVariables} disabled={stacksLoading || !selectedStack}>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmVariablesOpen(true)}
+                    disabled={stacksLoading || !selectedStack}
+                  >
                     Salvar variáveis
                   </button>
                   <button type="button" className="secondary" onClick={closeStacksModal}>
@@ -1281,6 +1237,72 @@ export function InstancesPage(): JSX.Element {
             )}
           </>
         )}
+      </Modal>
+
+      <Modal
+        isOpen={createStackOpen}
+        title="Nova stack global"
+        onClose={() => setCreateStackOpen(false)}
+      >
+        {createStackError && <div className="inline-alert">{createStackError}</div>}
+        {stackNameConflict && (
+          <div className="inline-warning">
+            Já existe uma stack global com este nome. Uma nova stack será criada mesmo assim.
+          </div>
+        )}
+        <div className="form-grid">
+          <label>
+            Nome
+            <input value={newStackName} onChange={(event) => setNewStackName(event.target.value)} />
+          </label>
+          <label>
+            Descrição
+            <input
+              value={newStackDescription}
+              onChange={(event) => setNewStackDescription(event.target.value)}
+            />
+          </label>
+        </div>
+        <label className="full-width">
+          Compose template
+          <textarea
+            value={newStackCompose}
+            onChange={(event) => setNewStackCompose(event.target.value)}
+            rows={10}
+          />
+        </label>
+        <div className="form-actions">
+          <button type="button" onClick={handleCreateStack} disabled={creatingStack}>
+            Criar stack global
+          </button>
+          <button type="button" className="secondary" onClick={() => setCreateStackOpen(false)}>
+            Cancelar
+          </button>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={confirmVariablesOpen}
+        title="Atualizar variáveis da instância"
+        onClose={() => setConfirmVariablesOpen(false)}
+      >
+        <p className="helper-text">
+          Deseja aplicar as variáveis informadas para esta instância? Isso substituirá os valores atuais.
+        </p>
+        <div className="form-actions">
+          <button
+            type="button"
+            onClick={() => {
+              setConfirmVariablesOpen(false);
+              void handleSaveStackVariables();
+            }}
+          >
+            Confirmar
+          </button>
+          <button type="button" className="secondary" onClick={() => setConfirmVariablesOpen(false)}>
+            Cancelar
+          </button>
+        </div>
       </Modal>
     </AppLayout>
   );
