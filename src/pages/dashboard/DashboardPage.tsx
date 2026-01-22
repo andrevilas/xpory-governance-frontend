@@ -553,7 +553,6 @@ export function DashboardPage(): JSX.Element {
                 <th>Nome</th>
                 <th>Status</th>
                 <th>Digest</th>
-                <th>Tipo</th>
                 <th>Ações</th>
               </tr>
             </thead>
@@ -584,7 +583,6 @@ export function DashboardPage(): JSX.Element {
                       {stack.digestDrifted ? 'Drift' : 'OK'}
                     </span>
                   </td>
-                  <td>{stack.version}</td>
                   <td>
                     <button type="button" onClick={() => setSelected(stack)}>
                       Detalhes
