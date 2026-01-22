@@ -10,7 +10,7 @@ import {
   InventoryStack,
   InventorySummary,
 } from '../../services/inventory';
-import { fetchStacksLocal } from '../../services/stacksLocal';
+import { deployStackLocal, fetchStackLocalPreview, fetchStacksLocal, StackLocal } from '../../services/stacksLocal';
 import {
   fetchRegistryRuns,
   fetchStackRegistryImages,
@@ -25,6 +25,7 @@ import '../../components/ui/modal.css';
 
 type StackRow = {
   id: string;
+  instanceId: string | null;
   name: string;
   status: 'ok' | 'warn';
   version: string;
@@ -56,6 +57,7 @@ export function DashboardPage(): JSX.Element {
   const [digestOnlyFilter, setDigestOnlyFilter] = useState(false);
   const [showRemoved, setShowRemoved] = useState(false);
   const [globalOnly, setGlobalOnly] = useState(false);
+  const [localStacks, setLocalStacks] = useState<StackLocal[]>([]);
   const [registryImages, setRegistryImages] = useState<RegistryImageState[]>([]);
   const [registryLoading, setRegistryLoading] = useState(false);
   const [registryError, setRegistryError] = useState<string | null>(null);
@@ -70,6 +72,8 @@ export function DashboardPage(): JSX.Element {
   const [errorDetail, setErrorDetail] = useState<{ title: string; message: string; meta: string } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [redeployLoading, setRedeployLoading] = useState(false);
+  const [redeployError, setRedeployError] = useState<string | null>(null);
 
   const auditFailedCount = useMemo(
     () => auditRuns.filter((run) => run.status === 'failed').length,
@@ -84,7 +88,7 @@ export function DashboardPage(): JSX.Element {
         fetchInventoryStacks(showRemoved),
         fetchInventorySummary(),
         fetchAuditRuns(8),
-        globalOnly ? fetchStacksLocal() : Promise.resolve([]),
+        fetchStacksLocal(),
       ]);
       if (globalOnly) {
         const globalNames = new Set(
@@ -97,6 +101,7 @@ export function DashboardPage(): JSX.Element {
       } else {
         setStacks(stacksResult);
       }
+      setLocalStacks(stacksLocalResult ?? []);
       setSummary(summaryResult);
       setAuditRuns(auditRunsResult);
     } catch (err) {
@@ -114,6 +119,7 @@ export function DashboardPage(): JSX.Element {
   const stackRows = useMemo<StackRow[]>(() => {
     return stacks.map((stack) => ({
       id: stack.id,
+      instanceId: stack.instanceId,
       name: stack.name,
       status: stack.outdated || stack.instanceDrifted || stack.digestDrifted ? 'warn' : 'ok',
       version: stack.type ? String(stack.type) : 'N/A',
@@ -138,6 +144,13 @@ export function DashboardPage(): JSX.Element {
       setSelected(null);
     }
   }, [stackRows, selected]);
+
+  useEffect(() => {
+    if (!selected) {
+      setRedeployError(null);
+      setRedeployLoading(false);
+    }
+  }, [selected]);
 
   const instanceOptions = useMemo(() => {
     const names = new Set<string>();
@@ -433,6 +446,54 @@ export function DashboardPage(): JSX.Element {
     link.download = filename;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleRedeploy = async () => {
+    if (!selected) {
+      return;
+    }
+    setRedeployError(null);
+    const instanceId = selected.instanceId;
+    if (!instanceId) {
+      setRedeployError('Instância não encontrada para a stack selecionada.');
+      return;
+    }
+    const localStack = localStacks.find(
+      (stack) => stack.name.toLowerCase() === selected.name.toLowerCase(),
+    );
+    if (!localStack) {
+      setRedeployError('Stack global não encontrada para esta stack.');
+      return;
+    }
+    setRedeployLoading(true);
+    try {
+      const preview = await fetchStackLocalPreview(localStack.id, instanceId);
+      if (!preview.isValid) {
+        const missing = preview.missingVariables.map((name) => `- ${name}`).join('\n') || 'n/a';
+        const unknown = preview.unknownVariables.map((name) => `- ${name}`).join('\n') || 'n/a';
+        setErrorDetail({
+          title: 'Variáveis incompletas',
+          message: 'Preencha as variáveis obrigatórias antes de realizar o redeploy.',
+          meta: `Faltantes:\n${missing}\n\nDesconhecidas:\n${unknown}`,
+        });
+        return;
+      }
+      const [result] = await deployStackLocal(localStack.id, { instanceIds: [instanceId], dryRun: false });
+      if (!result || result.status !== 'success') {
+        setRedeployError(
+          result?.errors?.length
+            ? result.errors.join(' | ')
+            : result?.message || 'Falha ao realizar redeploy.',
+        );
+        return;
+      }
+      setToastMessage('Redeploy realizado com sucesso.');
+    } catch (err) {
+      void err;
+      setRedeployError('Falha ao realizar redeploy.');
+    } finally {
+      setRedeployLoading(false);
+    }
   };
 
   return (
@@ -753,6 +814,14 @@ export function DashboardPage(): JSX.Element {
                 <span className="badge neutral">{selected.version}</span>
               </div>
             </div>
+            {(selected.outdated || selected.instanceDrifted || selected.digestDrifted) && (
+              <div className="stack-redeploy">
+                <button type="button" onClick={handleRedeploy} disabled={redeployLoading}>
+                  {redeployLoading ? 'Redeploy em andamento...' : 'Redeploy stack'}
+                </button>
+                {redeployError && <span className="inline-alert">{redeployError}</span>}
+              </div>
+            )}
 
             <div className="stack-metadata">
               <div>

@@ -431,6 +431,23 @@
   margin-bottom: 12px;
 }
 
+.stack-redeploy {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stack-redeploy button {
+  border: none;
+  background: #0f172a;
+  color: #ffffff;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
 .stack-summary-title {
   font-size: 14px;
   color: #475467;
