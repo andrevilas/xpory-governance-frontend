@@ -28,15 +28,16 @@ type StackRow = {
   name: string;
   status: 'ok' | 'warn';
   version: string;
-  endpointLabel: string;
+  instanceLabel: string;
   instanceName: string | null;
   instanceDrifted: boolean;
   digestDrifted: boolean;
   removedAt: string | null;
+  isAccessible: boolean;
 };
 
 export function DashboardPage(): JSX.Element {
-  const [search, setSearch] = useState('');
+  const [stackFilter, setStackFilter] = useState('');
   const [instanceFilter, setInstanceFilter] = useState('');
   const [selected, setSelected] = useState<StackRow | null>(null);
   const [stacks, setStacks] = useState<InventoryStack[]>([]);
@@ -111,15 +112,20 @@ export function DashboardPage(): JSX.Element {
       name: stack.name,
       status: stack.outdated || stack.instanceDrifted || stack.digestDrifted ? 'warn' : 'ok',
       version: stack.type ? String(stack.type) : 'N/A',
-      endpointLabel: stack.instanceName
-        ? `${stack.instanceName} / endpoint ${stack.endpointId}`
-        : `Endpoint ${stack.endpointId}`,
+      instanceLabel: stack.instanceName ?? `Endpoint ${stack.endpointId}`,
       instanceName: stack.instanceName,
       instanceDrifted: stack.instanceDrifted,
       digestDrifted: stack.digestDrifted,
       removedAt: stack.removedAt,
+      isAccessible: stack.status === 1 && !stack.removedAt,
     }));
   }, [stacks]);
+
+  const stackOptions = useMemo(() => {
+    const names = new Set<string>();
+    stackRows.forEach((row) => names.add(row.name));
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [stackRows]);
 
   useEffect(() => {
     if (selected && !stackRows.some((row) => row.id === selected.id)) {
@@ -197,13 +203,16 @@ export function DashboardPage(): JSX.Element {
 
   const filteredStacks = useMemo(
     () => {
-      let filtered = stackRows.filter((row) => row.name.toLowerCase().includes(search.toLowerCase()));
+      let filtered = stackRows;
+      if (stackFilter) {
+        filtered = filtered.filter((row) => row.name === stackFilter);
+      }
       if (instanceFilter) {
         filtered = filtered.filter((row) => row.instanceName === instanceFilter);
       }
       return digestOnlyFilter ? filtered.filter((row) => row.digestDrifted) : filtered;
     },
-    [search, stackRows, digestOnlyFilter, instanceFilter]
+    [stackFilter, stackRows, digestOnlyFilter, instanceFilter]
   );
 
   const filteredAuditResults = useMemo(() => {
@@ -459,24 +468,36 @@ export function DashboardPage(): JSX.Element {
 
         <section className="section">
           <h2>Stacks</h2>
-          <div className="table-tools">
-            <input
-              placeholder="Filtrar por nome"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              data-testid="inventory.filter.search.input"
-            />
-            <select
-              value={instanceFilter}
-              onChange={(event) => setInstanceFilter(event.target.value)}
-            >
-              <option value="">Todas as instâncias</option>
-              {instanceOptions.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
+          <div className="table-tools stacks-filters">
+            <label className="form-field">
+              Stack
+              <select
+                value={stackFilter}
+                onChange={(event) => setStackFilter(event.target.value)}
+                data-testid="inventory.filter.search.input"
+              >
+                <option value="">Todas as stacks</option>
+                {stackOptions.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="form-field">
+              Instância
+              <select
+                value={instanceFilter}
+                onChange={(event) => setInstanceFilter(event.target.value)}
+              >
+                <option value="">Todas as instâncias</option>
+                {instanceOptions.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="filter-toggle">
               <input
                 type="checkbox"
@@ -498,7 +519,6 @@ export function DashboardPage(): JSX.Element {
             <thead>
               <tr>
                 <th>Nome</th>
-                <th>Endpoint</th>
                 <th>Status</th>
                 <th>Digest</th>
                 <th>Tipo</th>
@@ -509,10 +529,19 @@ export function DashboardPage(): JSX.Element {
               {filteredStacks.map((stack) => (
                 <tr key={stack.id}>
                   <td>
-                    {stack.name}
-                    {stack.removedAt ? ' (removida)' : ''}
+                    <div className="stack-name-cell">
+                      <span
+                        className={`status-dot ${
+                          stack.isAccessible ? (stack.digestDrifted ? 'warn' : 'ok') : 'down'
+                        }`}
+                        aria-hidden="true"
+                      />
+                      <span>
+                        {stack.name} / {stack.instanceLabel}
+                        {stack.removedAt ? ' (removida)' : ''}
+                      </span>
+                    </div>
                   </td>
-                  <td>{stack.endpointLabel}</td>
                   <td>
                     <span className={`badge ${stack.status}`}>
                       {stack.status === 'ok' ? 'OK' : 'Atenção'}
@@ -600,7 +629,7 @@ export function DashboardPage(): JSX.Element {
             <div className="stack-summary">
               <div>
                 <div className="stack-summary-title">Stack selecionada</div>
-                <div className="stack-summary-subtitle">{selected.endpointLabel}</div>
+                <div className="stack-summary-subtitle">{selected.instanceLabel}</div>
               </div>
               <div className="stack-summary-badges">
                 <span className={`badge ${selected.status === 'ok' ? 'ok' : 'warn'}`}>

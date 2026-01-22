@@ -135,6 +135,29 @@
   margin: 12px 0;
 }
 
+.instances-page .instance-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.instances-page .status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex: 0 0 10px;
+  box-shadow: 0 0 0 2px #ffffff;
+}
+
+.instances-page .status-dot.ok {
+  background: #16a34a;
+}
+
+.instances-page .status-dot.down {
+  background: #dc2626;
+}
+
 .instances-page .inline-alert {
   margin-top: 12px;
   padding: 10px 12px;

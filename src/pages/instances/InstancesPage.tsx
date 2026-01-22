@@ -102,6 +102,7 @@ export function InstancesPage(): JSX.Element {
   const [registryUpdateLoading, setRegistryUpdateLoading] = useState(false);
   const [registryUpdateResult, setRegistryUpdateResult] = useState<RegistryUpdateResult | null>(null);
   const [registryRuns, setRegistryRuns] = useState<RegistryRun[]>([]);
+  const [instanceHealth, setInstanceHealth] = useState<Record<string, boolean>>({});
 
   const sortedInstances = useMemo(
     () => [...instances].sort((a, b) => a.name.localeCompare(b.name)),
@@ -219,6 +220,31 @@ export function InstancesPage(): JSX.Element {
   useEffect(() => {
     void loadInstances();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadInstanceHealth = async () => {
+      if (instances.length === 0) {
+        setInstanceHealth({});
+        return;
+      }
+      const results = await Promise.allSettled(
+        instances.map((instance) => fetchInstanceStacks(instance.id)),
+      );
+      const next: Record<string, boolean> = {};
+      results.forEach((result, index) => {
+        next[instances[index].id] = result.status === 'fulfilled';
+      });
+      if (!cancelled) {
+        setInstanceHealth(next);
+      }
+    };
+
+    void loadInstanceHealth();
+    return () => {
+      cancelled = true;
+    };
+  }, [instances]);
 
   useEffect(() => {
     const loadInventory = async () => {
@@ -799,7 +825,15 @@ export function InstancesPage(): JSX.Element {
                     className={selectedId === instance.id ? 'selected' : ''}
                     onClick={() => setSelectedId(instance.id)}
                   >
-                    <td>{instance.name}</td>
+                    <td>
+                      <div className="instance-name-cell">
+                        <span
+                          className={`status-dot ${instanceHealth[instance.id] ? 'ok' : 'down'}`}
+                          aria-hidden="true"
+                        />
+                        <span>{instance.name}</span>
+                      </div>
+                    </td>
                     <td>{instance.environment}</td>
                     <td>{instance.baseUrl}</td>
                     <td>{new Date(instance.updatedAt).toLocaleString()}</td>

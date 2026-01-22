@@ -59,9 +59,42 @@
 
 .table-tools {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
   margin-bottom: 12px;
+}
+
+.stacks-filters {
+  align-items: flex-end;
+}
+
+.dashboard .form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: #475467;
+  min-width: 180px;
+}
+
+.dashboard .form-field select,
+.dashboard .form-field input {
+  border: 1px solid #d0d5dd;
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  font-size: 14px;
+  color: #0f172a;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.dashboard .form-field select:focus,
+.dashboard .form-field input:focus {
+  outline: none;
+  border-color: #2563eb;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
 .filter-toggle {
@@ -120,6 +153,33 @@
   padding: 6px 12px;
   border-radius: 8px;
   cursor: pointer;
+}
+
+.stack-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex: 0 0 10px;
+  box-shadow: 0 0 0 2px #ffffff;
+}
+
+.status-dot.ok {
+  background: #16a34a;
+}
+
+.status-dot.warn {
+  background: #f97316;
+}
+
+.status-dot.down {
+  background: #dc2626;
 }
 
 .pill {
