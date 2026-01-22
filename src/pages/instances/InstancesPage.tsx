@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import yaml from 'js-yaml';
 
 import { AppLayout } from '../../components/layout/AppLayout';
 import { Modal } from '../../components/ui/Modal';
@@ -541,29 +542,94 @@ export function InstancesPage(): JSX.Element {
     return Array.from(new Set(names));
   };
 
+  const parseComposeEnvironment = (compose: string): Record<string, string> => {
+    try {
+      const parsed = yaml.load(compose);
+      if (!parsed || typeof parsed !== 'object') {
+        return {};
+      }
+      const services = (parsed as { services?: Record<string, unknown> }).services;
+      if (!services || typeof services !== 'object') {
+        return {};
+      }
+      const result: Record<string, string> = {};
+      Object.values(services).forEach((service) => {
+        if (!service || typeof service !== 'object') {
+          return;
+        }
+        const env = (service as { environment?: unknown }).environment;
+        if (Array.isArray(env)) {
+          env.forEach((entry) => {
+            if (typeof entry === 'string') {
+              const idx = entry.indexOf('=');
+              if (idx === -1) {
+                result[entry] = result[entry] ?? '';
+                return;
+              }
+              const key = entry.slice(0, idx).trim();
+              const value = entry.slice(idx + 1);
+              result[key] = value;
+              return;
+            }
+            if (entry && typeof entry === 'object') {
+              Object.entries(entry as Record<string, unknown>).forEach(([key, value]) => {
+                result[key] = value === null || value === undefined ? '' : String(value);
+              });
+            }
+          });
+          return;
+        }
+        if (env && typeof env === 'object') {
+          Object.entries(env as Record<string, unknown>).forEach(([key, value]) => {
+            result[key] = value === null || value === undefined ? '' : String(value);
+          });
+        }
+      });
+      return result;
+    } catch (err) {
+      void err;
+      return {};
+    }
+  };
+
   const importVariablesForStack = async (
     stackId: string,
     compose: string,
-  ): Promise<{ created: number; skipped: number }> => {
+    instanceId?: string,
+  ): Promise<{ created: number; skipped: number; valuesApplied: number }> => {
     const placeholders = extractPlaceholders(compose);
-    if (placeholders.length === 0) {
-      return { created: 0, skipped: 0 };
+    const envValues = parseComposeEnvironment(compose);
+    const names = Array.from(new Set([...placeholders, ...Object.keys(envValues)]));
+    if (names.length === 0) {
+      return { created: 0, skipped: 0, valuesApplied: 0 };
     }
     const existing = await fetchStackLocalVariables(stackId);
     const existingNames = new Set(existing.map((variable) => variable.variableName));
-    const missing = placeholders.filter((name) => !existingNames.has(name));
+    const missing = names.filter((name) => !existingNames.has(name));
     if (missing.length > 0) {
       await Promise.all(
         missing.map((variableName) =>
           createStackLocalVariable(stackId, {
             variableName,
             description: 'Importado da stack remota',
-            isRequired: true,
+            isRequired: false,
           }),
         ),
       );
     }
-    return { created: missing.length, skipped: placeholders.length - missing.length };
+    let valuesApplied = 0;
+    if (instanceId) {
+      await Promise.all(
+        Object.entries(envValues).map(async ([variableName, value]) => {
+          if (value === '') {
+            return;
+          }
+          await upsertInstanceVariable(stackId, instanceId, variableName, value);
+          valuesApplied += 1;
+        }),
+      );
+    }
+    return { created: missing.length, skipped: names.length - missing.length, valuesApplied };
   };
 
   const handleCreateStack = async () => {
@@ -579,7 +645,11 @@ export function InstancesPage(): JSX.Element {
         description: newStackDescription.trim() || undefined,
         composeTemplate: newStackCompose.trim(),
       });
-      const importResult = await importVariablesForStack(created.id, newStackCompose.trim());
+      const importResult = await importVariablesForStack(
+        created.id,
+        newStackCompose.trim(),
+        selectedInstance?.id,
+      );
       const stacksResult = await fetchStacksLocal();
       setStacks(stacksResult);
       setSelectedStackId(created.id);
@@ -588,8 +658,8 @@ export function InstancesPage(): JSX.Element {
       setNewStackDescription('');
       setNewStackCompose('');
       setMappingSuccess(
-        importResult.created > 0
-          ? `Stack criada. ${importResult.created} variáveis importadas.`
+        importResult.created > 0 || importResult.valuesApplied > 0
+          ? `Stack criada. ${importResult.created} variáveis importadas, ${importResult.valuesApplied} valores aplicados.`
           : 'Stack criada sem variáveis detectadas.',
       );
     } catch (err) {
@@ -618,10 +688,10 @@ export function InstancesPage(): JSX.Element {
         const stacksResult = await fetchStacksLocal();
         setStacks(stacksResult);
       }
-      const importResult = await importVariablesForStack(selectedStackId, compose);
+      const importResult = await importVariablesForStack(selectedStackId, compose, selectedInstance.id);
       await loadStackVariables(selectedStackId, selectedInstance.id);
       setMappingSuccess(
-        `Mapeamento concluído. ${importResult.created} variáveis importadas, ${importResult.skipped} já existentes.`,
+        `Mapeamento concluído. ${importResult.created} variáveis importadas, ${importResult.valuesApplied} valores aplicados.`,
       );
     } catch (err) {
       void err;
