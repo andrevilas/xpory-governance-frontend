@@ -40,6 +40,10 @@ export function DashboardPage(): JSX.Element {
   const [stackFilter, setStackFilter] = useState('');
   const [instanceFilter, setInstanceFilter] = useState('');
   const [selected, setSelected] = useState<StackRow | null>(null);
+  const [stacksPage, setStacksPage] = useState(1);
+  const [stacksPageSize, setStacksPageSize] = useState(10);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPageSize, setHistoryPageSize] = useState(10);
   const [stacks, setStacks] = useState<InventoryStack[]>([]);
   const [summary, setSummary] = useState<InventorySummary | null>(null);
   const [auditResults, setAuditResults] = useState<AuditResult[]>([]);
@@ -215,6 +219,16 @@ export function DashboardPage(): JSX.Element {
     [stackFilter, stackRows, digestOnlyFilter, instanceFilter]
   );
 
+  useEffect(() => {
+    setStacksPage(1);
+  }, [stackFilter, instanceFilter, digestOnlyFilter, showRemoved]);
+
+  const stacksTotalPages = Math.max(1, Math.ceil(filteredStacks.length / stacksPageSize));
+  const pagedStacks = useMemo(() => {
+    const start = (stacksPage - 1) * stacksPageSize;
+    return filteredStacks.slice(start, start + stacksPageSize);
+  }, [filteredStacks, stacksPage, stacksPageSize]);
+
   const filteredAuditResults = useMemo(() => {
     if (!auditFilter) {
       return auditResults;
@@ -253,6 +267,16 @@ export function DashboardPage(): JSX.Element {
         return bTime - aTime;
       });
   }, [stacks]);
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [operationalRows.length]);
+
+  const historyTotalPages = Math.max(1, Math.ceil(operationalRows.length / historyPageSize));
+  const pagedHistory = useMemo(() => {
+    const start = (historyPage - 1) * historyPageSize;
+    return operationalRows.slice(start, start + historyPageSize);
+  }, [operationalRows, historyPage, historyPageSize]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -534,7 +558,7 @@ export function DashboardPage(): JSX.Element {
               </tr>
             </thead>
             <tbody>
-              {filteredStacks.map((stack) => (
+              {pagedStacks.map((stack) => (
                 <tr key={stack.id}>
                   <td>
                     <div className="stack-name-cell">
@@ -576,6 +600,41 @@ export function DashboardPage(): JSX.Element {
               ))}
             </tbody>
           </table>
+          <div className="table-pagination">
+            <div className="page-info">
+              Página {stacksPage} de {stacksTotalPages}
+            </div>
+            <div className="page-controls">
+              <button
+                type="button"
+                onClick={() => setStacksPage((prev) => Math.max(1, prev - 1))}
+                disabled={stacksPage <= 1}
+              >
+                Anterior
+              </button>
+              <button
+                type="button"
+                onClick={() => setStacksPage((prev) => Math.min(stacksTotalPages, prev + 1))}
+                disabled={stacksPage >= stacksTotalPages}
+              >
+                Próxima
+              </button>
+              <select
+                value={stacksPageSize}
+                onChange={(event) => {
+                  setStacksPageSize(Number(event.target.value));
+                  setStacksPage(1);
+                }}
+                aria-label="Itens por página"
+              >
+                {[10, 20, 50].map((size) => (
+                  <option key={size} value={size}>
+                    {size}/página
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
         </section>
 
         <section className="section">
@@ -591,7 +650,7 @@ export function DashboardPage(): JSX.Element {
               </tr>
             </thead>
             <tbody>
-              {operationalRows.map((row) => (
+              {pagedHistory.map((row) => (
                 <tr key={row.id}>
                   <td>{row.instanceLabel}</td>
                   <td>{row.name}</td>
@@ -616,6 +675,41 @@ export function DashboardPage(): JSX.Element {
               ))}
             </tbody>
           </table>
+          <div className="table-pagination">
+            <div className="page-info">
+              Página {historyPage} de {historyTotalPages}
+            </div>
+            <div className="page-controls">
+              <button
+                type="button"
+                onClick={() => setHistoryPage((prev) => Math.max(1, prev - 1))}
+                disabled={historyPage <= 1}
+              >
+                Anterior
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryPage((prev) => Math.min(historyTotalPages, prev + 1))}
+                disabled={historyPage >= historyTotalPages}
+              >
+                Próxima
+              </button>
+              <select
+                value={historyPageSize}
+                onChange={(event) => {
+                  setHistoryPageSize(Number(event.target.value));
+                  setHistoryPage(1);
+                }}
+                aria-label="Itens por página"
+              >
+                {[10, 20, 50].map((size) => (
+                  <option key={size} value={size}>
+                    {size}/página
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
         </section>
 
         <section className="section">
