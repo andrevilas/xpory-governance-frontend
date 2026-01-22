@@ -224,26 +224,34 @@ export function DashboardPage(): JSX.Element {
   }, [auditFilter, auditResults]);
 
   const operationalRows = useMemo(() => {
-    return stacks.map((stack) => {
-      const problems: string[] = [];
-      if (stack.outdated) {
-        problems.push('Stack desatualizada');
-      }
-      if (stack.instanceDrifted) {
-        problems.push('Drift entre instâncias');
-      }
-      if (stack.digestDrifted) {
-        problems.push('Drift de digest');
-      }
-      return {
-        id: stack.id,
-        instanceLabel: stack.instanceName ?? `Endpoint ${stack.endpointId}`,
-        name: stack.name,
-        status: problems.length > 0 ? 'Atenção' : 'OK',
-        when: stack.lastSnapshotAt ? new Date(stack.lastSnapshotAt).toLocaleString('pt-BR') : 'n/a',
-        problem: problems.length > 0 ? problems.join(' | ') : 'OK',
-      };
-    });
+    return stacks
+      .map((stack) => {
+        const problems: string[] = [];
+        if (stack.outdated) {
+          problems.push('Stack desatualizada');
+        }
+        if (stack.instanceDrifted) {
+          problems.push('Drift entre instâncias');
+        }
+        if (stack.digestDrifted) {
+          problems.push('Drift de digest');
+        }
+        const whenDate = stack.lastSnapshotAt ? new Date(stack.lastSnapshotAt) : null;
+        return {
+          id: stack.id,
+          instanceLabel: stack.instanceName ?? `Endpoint ${stack.endpointId}`,
+          name: stack.name,
+          status: problems.length > 0 ? 'Atenção' : 'OK',
+          whenDate,
+          when: whenDate ? whenDate.toLocaleString('pt-BR') : 'n/a',
+          problems,
+        };
+      })
+      .sort((a, b) => {
+        const aTime = a.whenDate ? a.whenDate.getTime() : 0;
+        const bTime = b.whenDate ? b.whenDate.getTime() : 0;
+        return bTime - aTime;
+      });
   }, [stacks]);
 
   const handleRefresh = async () => {
@@ -591,7 +599,19 @@ export function DashboardPage(): JSX.Element {
                     <span className={`badge ${row.status === 'OK' ? 'ok' : 'warn'}`}>{row.status}</span>
                   </td>
                   <td>{row.when}</td>
-                  <td>{row.problem}</td>
+                  <td>
+                    <div className="problem-badges">
+                      {row.problems.length > 0 ? (
+                        row.problems.map((problem) => (
+                          <span key={problem} className="badge problem">
+                            {problem}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="badge problem-ok">OK</span>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

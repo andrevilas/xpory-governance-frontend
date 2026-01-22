@@ -327,6 +327,22 @@
   color: #1f2937;
 }
 
+.badge.problem {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.badge.problem-ok {
+  background: #eef2f6;
+  color: #1f2937;
+}
+
+.problem-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .stack-detail-modal {
   width: min(980px, 96vw);
 }
