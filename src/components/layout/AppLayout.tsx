@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../../context/auth/useAuth';
@@ -13,63 +14,80 @@ export function AppLayout({ title, children, headerAction }: AppLayoutProps): JS
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, isMaster } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
+  const handleNavigate = (path: string) => {
+    setMenuOpen(false);
+    navigate(path);
+  };
+
   return (
     <div className="app-layout">
-      <aside className="sidebar">
-        <div className="brand">
-          <span className="brand-mark">XP</span>
-          <div>
-            <div className="brand-title">XPORY</div>
-            <div className="brand-subtitle">Governance</div>
+      <aside className={`sidebar${menuOpen ? ' open' : ''}`}>
+        <div className="sidebar-header">
+          <div className="brand">
+            <span className="brand-mark">XP</span>
+            <div>
+              <div className="brand-title">XPORY</div>
+              <div className="brand-subtitle">Governance</div>
+            </div>
           </div>
+          <button
+            type="button"
+            className="menu-toggle"
+            aria-expanded={menuOpen}
+            aria-controls="app-navigation"
+            onClick={() => setMenuOpen((prev) => !prev)}
+          >
+            Menu
+          </button>
         </div>
 
-        <nav className="nav">
+        <nav className="nav" id="app-navigation">
           <button
             type="button"
             className={`nav-item${location.pathname.includes('/app/dashboard') ? ' active' : ''}`}
-            onClick={() => navigate('/app/dashboard')}
+            onClick={() => handleNavigate('/app/dashboard')}
           >
             Dashboard
           </button>
           <button
             type="button"
             className={`nav-item${location.pathname.includes('/app/instances') ? ' active' : ''}`}
-            onClick={() => navigate('/app/instances')}
+            onClick={() => handleNavigate('/app/instances')}
           >
             Instâncias
           </button>
           <button
             type="button"
             className={`nav-item${location.pathname.includes('/app/stacks') ? ' active' : ''}`}
-            onClick={() => navigate('/app/stacks')}
+            onClick={() => handleNavigate('/app/stacks')}
           >
             Stacks Globais
           </button>
           <button
             type="button"
             className={`nav-item${location.pathname.includes('/app/updates') ? ' active' : ''}`}
-            onClick={() => navigate('/app/updates')}
+            onClick={() => handleNavigate('/app/updates')}
           >
             Atualizações
           </button>
           <button
             type="button"
             className={`nav-item${location.pathname.includes('/app/alerts') ? ' active' : ''}`}
-            onClick={() => navigate('/app/alerts')}
+            onClick={() => handleNavigate('/app/alerts')}
           >
             Alertas
           </button>
           <button
             type="button"
             className={`nav-item${location.pathname.includes('/app/notifications') ? ' active' : ''}`}
-            onClick={() => navigate('/app/notifications/recipients')}
+            onClick={() => handleNavigate('/app/notifications/recipients')}
           >
             Notificações
           </button>
@@ -77,13 +95,22 @@ export function AppLayout({ title, children, headerAction }: AppLayoutProps): JS
             <button
               type="button"
               className={`nav-item${location.pathname.includes('/app/users') ? ' active' : ''}`}
-              onClick={() => navigate('/app/users')}
+              onClick={() => handleNavigate('/app/users')}
             >
               Usuários
             </button>
           )}
         </nav>
       </aside>
+
+      {menuOpen && (
+        <button
+          type="button"
+          className="menu-overlay"
+          aria-label="Fechar menu"
+          onClick={() => setMenuOpen(false)}
+        />
+      )}
 
       <div className="main">
         <header className="header">
