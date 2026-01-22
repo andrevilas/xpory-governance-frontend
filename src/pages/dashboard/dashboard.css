@@ -343,6 +343,12 @@
   gap: 6px;
 }
 
+.status-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .table-pagination {
   margin-top: 12px;
   display: flex;

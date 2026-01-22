@@ -32,6 +32,7 @@ type StackRow = {
   instanceName: string | null;
   instanceDrifted: boolean;
   digestDrifted: boolean;
+  outdated: boolean;
   removedAt: string | null;
   isAccessible: boolean;
 };
@@ -120,6 +121,7 @@ export function DashboardPage(): JSX.Element {
       instanceName: stack.instanceName,
       instanceDrifted: stack.instanceDrifted,
       digestDrifted: stack.digestDrifted,
+      outdated: stack.outdated,
       removedAt: stack.removedAt,
       isAccessible: stack.status === 1 && !stack.removedAt,
     }));
@@ -552,7 +554,6 @@ export function DashboardPage(): JSX.Element {
               <tr>
                 <th>Nome</th>
                 <th>Status</th>
-                <th>Digest</th>
                 <th>Ações</th>
               </tr>
             </thead>
@@ -574,14 +575,16 @@ export function DashboardPage(): JSX.Element {
                     </div>
                   </td>
                   <td>
-                    <span className={`badge ${stack.status}`}>
-                      {stack.status === 'ok' ? 'OK' : 'Atenção'}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`badge ${stack.digestDrifted ? 'warn' : 'ok'}`}>
-                      {stack.digestDrifted ? 'Drift' : 'OK'}
-                    </span>
+                    {stack.status === 'ok' ? (
+                      <span className="badge ok">OK</span>
+                    ) : (
+                      <div className="status-badges">
+                        <span className="badge warn">Atenção</span>
+                        {stack.outdated && <span className="badge problem">Stack desatualizada</span>}
+                        {stack.instanceDrifted && <span className="badge problem">Drift instâncias</span>}
+                        {stack.digestDrifted && <span className="badge problem">Digest</span>}
+                      </div>
+                    )}
                   </td>
                   <td>
                     <button type="button" onClick={() => setSelected(stack)}>
