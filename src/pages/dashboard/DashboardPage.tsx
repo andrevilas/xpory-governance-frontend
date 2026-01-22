@@ -805,7 +805,7 @@ export function DashboardPage(): JSX.Element {
             </header>
             <p>
               Você está prestes a remover a stack <strong>{removeTarget.name}</strong> na instância{' '}
-              <strong>{removeTarget.endpointLabel}</strong>.
+              <strong>{removeTarget.instanceLabel}</strong>.
             </p>
             <p>Para confirmar, digite <strong>remover</strong>.</p>
             <input
