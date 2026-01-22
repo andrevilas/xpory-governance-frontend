@@ -217,7 +217,7 @@
   min-height: 75vh;
 }
 
-.instances-page .stacks-modal-tabs {
+.stacks-modal .stacks-modal-tabs {
   display: flex;
   gap: 10px;
   padding: 8px;
@@ -225,9 +225,10 @@
   background: #f1f5f9;
   width: fit-content;
   margin-top: 6px;
+  margin-bottom: 8px;
 }
 
-.instances-page .stacks-modal-tabs button {
+.stacks-modal .stacks-modal-tabs button {
   border: none;
   background: transparent;
   padding: 8px 14px;
@@ -238,12 +239,12 @@
   cursor: pointer;
 }
 
-.instances-page .stacks-modal-tabs button.active {
+.stacks-modal .stacks-modal-tabs button.active {
   background: #0f172a;
   color: #ffffff;
 }
 
-.instances-page .stacks-tab-content {
+.stacks-modal .stacks-tab-content {
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -256,33 +257,33 @@
   margin-bottom: 16px;
 }
 
-.instances-page .stack-panel {
+.stacks-modal .stack-panel {
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 12px;
   background: #f8fafc;
 }
 
-.instances-page .stack-panel h3 {
+.stacks-modal .stack-panel h3 {
   margin: 0 0 10px;
   font-size: 14px;
   color: #0f172a;
 }
 
-.instances-page .stack-hint {
+.stacks-modal .stack-hint {
   margin-top: 8px;
   font-size: 12px;
   color: #64748b;
 }
 
-.instances-page .stack-actions {
+.stacks-modal .stack-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 12px;
 }
 
-.instances-page .registry-panel {
+.stacks-modal .registry-panel {
   margin-top: 12px;
   padding: 12px;
   border: 1px solid #e2e8f0;
@@ -290,26 +291,26 @@
   background: #ffffff;
 }
 
-.instances-page .stacks-tab-content .registry-panel,
-.instances-page .stacks-tab-content .create-stack-card,
-.instances-page .stacks-tab-content .stack-vars {
+.stacks-modal .stacks-tab-content .registry-panel,
+.stacks-modal .stacks-tab-content .create-stack-card,
+.stacks-modal .stacks-tab-content .stack-vars {
   grid-column: 1 / -1;
 }
 
-.instances-page .registry-panel h4 {
+.stacks-modal .registry-panel h4 {
   margin: 0 0 8px;
   font-size: 13px;
   color: #0f172a;
 }
 
-.instances-page .registry-actions {
+.stacks-modal .registry-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 10px;
 }
 
-.instances-page .checkbox-toggle {
+.stacks-modal .checkbox-toggle {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -317,22 +318,22 @@
   color: #334155;
 }
 
-.instances-page .registry-table {
+.stacks-modal .registry-table {
   margin-top: 12px;
   overflow-x: auto;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
 }
 
-.instances-page .registry-table table {
+.stacks-modal .registry-table table {
   width: 100%;
   border-collapse: collapse;
   min-width: 760px;
   table-layout: fixed;
 }
 
-.instances-page .registry-table th,
-.instances-page .registry-table td {
+.stacks-modal .registry-table th,
+.stacks-modal .registry-table td {
   padding: 10px 8px;
   border-bottom: 1px solid #eaecf0;
   font-size: 13px;
@@ -340,25 +341,30 @@
   vertical-align: top;
 }
 
-.instances-page .registry-table td.mono {
+.stacks-modal .registry-table td.mono {
   font-family: "SFMono-Regular", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 12px;
   color: #101828;
   word-break: break-all;
 }
 
-.instances-page .registry-table td.truncate {
+.stacks-modal .registry-table td.truncate {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.instances-page .helper-text {
+.stacks-modal .helper-text {
   font-size: 12px;
   color: #475467;
 }
 
-.instances-page .registry-log {
+.modal .helper-text {
+  font-size: 12px;
+  color: #475467;
+}
+
+.stacks-modal .registry-log {
   margin-top: 12px;
   padding: 12px;
   border-radius: 12px;
@@ -366,27 +372,27 @@
   background: #ffffff;
 }
 
-.instances-page .registry-log h5 {
+.stacks-modal .registry-log h5 {
   margin: 0 0 8px;
   font-size: 12px;
   color: #0f172a;
 }
 
-.instances-page .registry-log table {
+.stacks-modal .registry-log table {
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
 }
 
-.instances-page .registry-log th,
-.instances-page .registry-log td {
+.stacks-modal .registry-log th,
+.stacks-modal .registry-log td {
   padding: 8px;
   border-bottom: 1px solid #eaecf0;
   text-align: left;
   vertical-align: top;
 }
 
-.instances-page .stack-actions button {
+.stacks-modal .stack-actions button {
   padding: 8px 12px;
   border-radius: 8px;
   border: none;
@@ -396,12 +402,12 @@
   font-size: 12px;
 }
 
-.instances-page .stack-actions button.secondary {
+.stacks-modal .stack-actions button.secondary {
   background: #e2e8f0;
   color: #0f172a;
 }
 
-.instances-page .stack-actions button.ghost {
+.stacks-modal .stack-actions button.ghost {
   background: #ffffff;
   color: #0f172a;
   border: 1px solid #e2e8f0;
