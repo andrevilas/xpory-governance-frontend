@@ -21,12 +21,14 @@ import {
 } from '../../services/registry';
 import {
   createStackLocal,
+  createStackLocalVariable,
   fetchStackInstanceVariables,
   fetchStackLocalVariables,
   fetchStacksLocal,
   StackInstanceVariable,
   StackLocal,
   StackLocalVariable,
+  updateStackLocal,
   upsertInstanceVariable,
   deleteInstanceVariable,
 } from '../../services/stacksLocal';
@@ -65,6 +67,7 @@ export function InstancesPage(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isStacksModalOpen, setIsStacksModalOpen] = useState(false);
+  const [stacksTab, setStacksTab] = useState<'remote' | 'global'>('remote');
   const [stacks, setStacks] = useState<StackLocal[]>([]);
   const [instanceStacks, setInstanceStacks] = useState<PortainerStack[]>([]);
   const [selectedRemoteStackId, setSelectedRemoteStackId] = useState<number | null>(null);
@@ -80,6 +83,10 @@ export function InstancesPage(): JSX.Element {
   const [newStackCompose, setNewStackCompose] = useState('');
   const [creatingStack, setCreatingStack] = useState(false);
   const [createStackError, setCreateStackError] = useState<string | null>(null);
+  const [mappingLoading, setMappingLoading] = useState(false);
+  const [mappingError, setMappingError] = useState<string | null>(null);
+  const [mappingSuccess, setMappingSuccess] = useState<string | null>(null);
+  const [mappingUpdateCompose, setMappingUpdateCompose] = useState(true);
   const [inventoryStacks, setInventoryStacks] = useState<InventoryStack[]>([]);
   const [registryImages, setRegistryImages] = useState<RegistryImageState[]>([]);
   const [registryLoading, setRegistryLoading] = useState(false);
@@ -404,6 +411,8 @@ export function InstancesPage(): JSX.Element {
     setSelectedId(instance.id);
     setStacksError(null);
     setCreateStackError(null);
+    setMappingError(null);
+    setMappingSuccess(null);
     setStacksLoading(true);
     setIsStacksModalOpen(true);
     try {
@@ -425,6 +434,7 @@ export function InstancesPage(): JSX.Element {
 
   const closeStacksModal = () => {
     setIsStacksModalOpen(false);
+    setStacksTab('remote');
     setStacks([]);
     setInstanceStacks([]);
     setSelectedRemoteStackId(null);
@@ -438,6 +448,9 @@ export function InstancesPage(): JSX.Element {
     setNewStackDescription('');
     setNewStackCompose('');
     setCreateStackError(null);
+    setMappingError(null);
+    setMappingSuccess(null);
+    setMappingUpdateCompose(true);
   };
 
   const loadStackVariables = async (stackId: string, instanceId: string) => {
@@ -500,6 +513,9 @@ export function InstancesPage(): JSX.Element {
     setCreateStackError(null);
     setCreateStackOpen(true);
     setNewStackDescription('');
+    setMappingError(null);
+    setMappingSuccess(null);
+    setStacksTab('global');
     if (fromRemote && selectedRemoteStack && selectedInstance) {
       try {
         const compose = await fetchInstanceStackCompose(
@@ -519,6 +535,37 @@ export function InstancesPage(): JSX.Element {
     setNewStackCompose('');
   };
 
+  const extractPlaceholders = (compose: string): string[] => {
+    const matches = compose.match(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g) ?? [];
+    const names = matches.map((match) => match.replace(/\{\{\s*|\s*\}\}/g, ''));
+    return Array.from(new Set(names));
+  };
+
+  const importVariablesForStack = async (
+    stackId: string,
+    compose: string,
+  ): Promise<{ created: number; skipped: number }> => {
+    const placeholders = extractPlaceholders(compose);
+    if (placeholders.length === 0) {
+      return { created: 0, skipped: 0 };
+    }
+    const existing = await fetchStackLocalVariables(stackId);
+    const existingNames = new Set(existing.map((variable) => variable.variableName));
+    const missing = placeholders.filter((name) => !existingNames.has(name));
+    if (missing.length > 0) {
+      await Promise.all(
+        missing.map((variableName) =>
+          createStackLocalVariable(stackId, {
+            variableName,
+            description: 'Importado da stack remota',
+            isRequired: true,
+          }),
+        ),
+      );
+    }
+    return { created: missing.length, skipped: placeholders.length - missing.length };
+  };
+
   const handleCreateStack = async () => {
     setCreateStackError(null);
     if (!newStackName.trim() || !newStackCompose.trim()) {
@@ -532,6 +579,7 @@ export function InstancesPage(): JSX.Element {
         description: newStackDescription.trim() || undefined,
         composeTemplate: newStackCompose.trim(),
       });
+      const importResult = await importVariablesForStack(created.id, newStackCompose.trim());
       const stacksResult = await fetchStacksLocal();
       setStacks(stacksResult);
       setSelectedStackId(created.id);
@@ -539,11 +587,47 @@ export function InstancesPage(): JSX.Element {
       setNewStackName('');
       setNewStackDescription('');
       setNewStackCompose('');
+      setMappingSuccess(
+        importResult.created > 0
+          ? `Stack criada. ${importResult.created} variáveis importadas.`
+          : 'Stack criada sem variáveis detectadas.',
+      );
     } catch (err) {
       void err;
       setCreateStackError('Falha ao criar stack global.');
     } finally {
       setCreatingStack(false);
+    }
+  };
+
+  const handleMapRemoteToGlobal = async () => {
+    if (!selectedRemoteStack || !selectedInstance || !selectedStackId) {
+      return;
+    }
+    setMappingLoading(true);
+    setMappingError(null);
+    setMappingSuccess(null);
+    try {
+      const compose = await fetchInstanceStackCompose(
+        selectedInstance.id,
+        selectedRemoteStack.id,
+        selectedRemoteStack.endpointId,
+      );
+      if (mappingUpdateCompose) {
+        await updateStackLocal(selectedStackId, { composeTemplate: compose });
+        const stacksResult = await fetchStacksLocal();
+        setStacks(stacksResult);
+      }
+      const importResult = await importVariablesForStack(selectedStackId, compose);
+      await loadStackVariables(selectedStackId, selectedInstance.id);
+      setMappingSuccess(
+        `Mapeamento concluído. ${importResult.created} variáveis importadas, ${importResult.skipped} já existentes.`,
+      );
+    } catch (err) {
+      void err;
+      setMappingError('Falha ao mapear stack remota para a stack global.');
+    } finally {
+      setMappingLoading(false);
     }
   };
 
@@ -765,8 +849,9 @@ export function InstancesPage(): JSX.Element {
 
       <Modal
         isOpen={isStacksModalOpen}
-        title={`Stacks globais${selectedInstance ? ` · ${selectedInstance.name}` : ''}`}
+        title={`Stacks · ${selectedInstance ? selectedInstance.name : 'Instância'}`}
         onClose={closeStacksModal}
+        className="stacks-modal"
       >
         {selectedInstance && (
           <div className="modal-summary">
@@ -778,38 +863,112 @@ export function InstancesPage(): JSX.Element {
           </div>
         )}
         {stacksError && <div className="inline-alert">{stacksError}</div>}
+        {mappingError && <div className="inline-alert">{mappingError}</div>}
+        {mappingSuccess && <div className="inline-warning">{mappingSuccess}</div>}
         {stacksLoading ? (
           <div className="empty-state">Carregando...</div>
         ) : (
           <>
-            <div className="stacks-modal-grid">
-              <div className="stack-panel">
-                <h3>Stacks remotas</h3>
-                <div className="form-grid">
-                  <label>
-                    Stack remota
-                    <select
-                      value={selectedRemoteStackId ?? ''}
-                      onChange={(event) => setSelectedRemoteStackId(Number(event.target.value) || null)}
-                      disabled={instanceStacks.length === 0}
-                    >
-                      {instanceStacks.length === 0 ? (
-                        <option value="">Nenhuma stack remota encontrada</option>
-                      ) : (
-                        instanceStacks.map((stack) => (
-                          <option key={stack.id} value={stack.id}>
-                            {stack.name} (endpoint {stack.endpointId})
-                          </option>
-                        ))
-                      )}
-                    </select>
-                  </label>
-                </div>
-                {selectedRemoteStack && (
-                  <div className="stack-hint">
-                    Endpoint {selectedRemoteStack.endpointId} · ID {selectedRemoteStack.id}
+            <div className="stacks-modal-tabs">
+              <button
+                type="button"
+                className={stacksTab === 'remote' ? 'active' : ''}
+                onClick={() => setStacksTab('remote')}
+              >
+                Stacks remotas
+              </button>
+              <button
+                type="button"
+                className={stacksTab === 'global' ? 'active' : ''}
+                onClick={() => setStacksTab('global')}
+              >
+                Stacks globais
+              </button>
+            </div>
+
+            {stacksTab === 'remote' ? (
+              <div className="stacks-tab-content">
+                <div className="stack-panel">
+                  <h3>Seleção remota</h3>
+                  <div className="form-grid">
+                    <label>
+                      Stack remota
+                      <select
+                        value={selectedRemoteStackId ?? ''}
+                        onChange={(event) => setSelectedRemoteStackId(Number(event.target.value) || null)}
+                        disabled={instanceStacks.length === 0}
+                      >
+                        {instanceStacks.length === 0 ? (
+                          <option value="">Nenhuma stack remota encontrada</option>
+                        ) : (
+                          instanceStacks.map((stack) => (
+                            <option key={stack.id} value={stack.id}>
+                              {stack.name} (endpoint {stack.endpointId})
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    </label>
                   </div>
-                )}
+                  {selectedRemoteStack && (
+                    <div className="stack-hint">
+                      Endpoint {selectedRemoteStack.endpointId} · ID {selectedRemoteStack.id}
+                    </div>
+                  )}
+                </div>
+
+                <div className="stack-panel">
+                  <h3>Mapear para stack global</h3>
+                  <div className="form-grid">
+                    <label>
+                      Stack global alvo
+                      <select
+                        value={selectedStackId ?? ''}
+                        onChange={(event) => setSelectedStackId(event.target.value || null)}
+                        disabled={stacks.length === 0}
+                      >
+                        {stacks.length === 0 ? (
+                          <option value="">Nenhuma stack global cadastrada</option>
+                        ) : (
+                          stacks.map((stack) => {
+                            const isRemote = remoteStackNames.has(stack.name.toLowerCase());
+                            return (
+                              <option key={stack.id} value={stack.id}>
+                                {stack.name} {isRemote ? '(remota)' : '(sem stack remota)'}
+                              </option>
+                            );
+                          })
+                        )}
+                      </select>
+                    </label>
+                    <label className="checkbox-toggle">
+                      <input
+                        type="checkbox"
+                        checked={mappingUpdateCompose}
+                        onChange={(event) => setMappingUpdateCompose(event.target.checked)}
+                      />
+                      Atualizar compose da stack global com o remoto
+                    </label>
+                  </div>
+                  <div className="stack-actions">
+                    <button
+                      type="button"
+                      onClick={() => void handleMapRemoteToGlobal()}
+                      disabled={!selectedRemoteStack || !selectedStackId || mappingLoading}
+                    >
+                      {mappingLoading ? 'Mapeando...' : 'Mapear & importar variáveis'}
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => void openCreateStackForm(true)}
+                      disabled={!selectedRemoteStack}
+                    >
+                      Criar global a partir da remota
+                    </button>
+                  </div>
+                </div>
+
                 <div className="registry-panel">
                   <h4>Digest da stack</h4>
                   <p className="helper-text">
@@ -911,143 +1070,145 @@ export function InstancesPage(): JSX.Element {
                     </>
                   )}
                 </div>
-                <div className="stack-actions">
-                  <button type="button" onClick={() => void openCreateStackForm(false)}>
-                    Nova stack global
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => void openCreateStackForm(true)}
-                    disabled={!selectedRemoteStack}
-                  >
-                    Criar global a partir da stack remota
-                  </button>
-                </div>
               </div>
-
-              <div className="stack-panel">
-                <h3>Stack global</h3>
-                <div className="form-grid">
-                  <label>
-                    Stack global
-                    <select
-                      value={selectedStackId ?? ''}
-                      onChange={(event) => setSelectedStackId(event.target.value || null)}
-                      disabled={stacks.length === 0}
+            ) : (
+              <div className="stacks-tab-content">
+                <div className="stack-panel">
+                  <h3>Stacks globais</h3>
+                  <div className="form-grid">
+                    <label>
+                      Stack global
+                      <select
+                        value={selectedStackId ?? ''}
+                        onChange={(event) => setSelectedStackId(event.target.value || null)}
+                        disabled={stacks.length === 0}
+                      >
+                        {stacks.length === 0 ? (
+                          <option value="">Nenhuma stack global cadastrada</option>
+                        ) : (
+                          stacks.map((stack) => {
+                            const isRemote = remoteStackNames.has(stack.name.toLowerCase());
+                            return (
+                              <option key={stack.id} value={stack.id}>
+                                {stack.name} {isRemote ? '(remota)' : '(sem stack remota)'}
+                              </option>
+                            );
+                          })
+                        )}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="stack-actions">
+                    <button type="button" onClick={() => void openCreateStackForm(false)}>
+                      Nova stack global
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => void openCreateStackForm(true)}
+                      disabled={!selectedRemoteStack}
                     >
-                      {stacks.length === 0 ? (
-                        <option value="">Nenhuma stack global cadastrada</option>
-                      ) : (
-                        stacks.map((stack) => {
-                          const isRemote = remoteStackNames.has(stack.name.toLowerCase());
-                          return (
-                            <option key={stack.id} value={stack.id}>
-                              {stack.name} {isRemote ? '(remota)' : '(sem stack remota)'}
-                            </option>
-                          );
-                        })
-                      )}
-                    </select>
-                  </label>
+                      Criar global a partir da remota
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            {createStackOpen && (
-              <div className="create-stack-card">
-                <h3>Nova stack global</h3>
-                {createStackError && <div className="inline-alert">{createStackError}</div>}
-                {stackNameConflict && (
-                  <div className="inline-warning">
-                    Já existe uma stack global com este nome. Uma nova stack será criada mesmo assim.
+                {createStackOpen && (
+                  <div className="create-stack-card">
+                    <h3>Nova stack global</h3>
+                    {createStackError && <div className="inline-alert">{createStackError}</div>}
+                    {stackNameConflict && (
+                      <div className="inline-warning">
+                        Já existe uma stack global com este nome. Uma nova stack será criada mesmo assim.
+                      </div>
+                    )}
+                    <div className="form-grid">
+                      <label>
+                        Nome
+                        <input value={newStackName} onChange={(event) => setNewStackName(event.target.value)} />
+                      </label>
+                      <label>
+                        Descrição
+                        <input
+                          value={newStackDescription}
+                          onChange={(event) => setNewStackDescription(event.target.value)}
+                        />
+                      </label>
+                    </div>
+                    <label className="full-width">
+                      Compose template
+                      <textarea
+                        value={newStackCompose}
+                        onChange={(event) => setNewStackCompose(event.target.value)}
+                        rows={8}
+                      />
+                    </label>
+                    <div className="form-actions">
+                      <button type="button" onClick={handleCreateStack} disabled={creatingStack}>
+                        Criar stack global
+                      </button>
+                      <button type="button" className="secondary" onClick={() => setCreateStackOpen(false)}>
+                        Cancelar
+                      </button>
+                    </div>
                   </div>
                 )}
-                <div className="form-grid">
-                  <label>
-                    Nome
-                    <input value={newStackName} onChange={(event) => setNewStackName(event.target.value)} />
-                  </label>
-                  <label>
-                    Descrição
-                    <input
-                      value={newStackDescription}
-                      onChange={(event) => setNewStackDescription(event.target.value)}
-                    />
-                  </label>
-                </div>
-                <label className="full-width">
-                  Compose template
-                  <textarea
-                    value={newStackCompose}
-                    onChange={(event) => setNewStackCompose(event.target.value)}
-                    rows={8}
-                  />
-                </label>
-                <div className="form-actions">
-                  <button type="button" onClick={handleCreateStack} disabled={creatingStack}>
-                    Criar stack global
-                  </button>
-                  <button type="button" className="secondary" onClick={() => setCreateStackOpen(false)}>
-                    Cancelar
-                  </button>
-                </div>
-              </div>
-            )}
 
-            {selectedStackId && (
-              <div className="stack-vars">
-                {stackVariables.length === 0 ? (
-                  <div className="empty-state">Nenhuma variável cadastrada para esta stack.</div>
-                ) : (
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>Variável</th>
-                        <th>Obrigatória</th>
-                        <th>Default</th>
-                        <th>Valor na instância</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {stackVariables.map((variable) => {
-                        const instanceValue = stackVarDrafts[variable.variableName] ?? '';
-                        return (
-                          <tr key={variable.id}>
-                            <td>
-                              <div className="stack-name">{variable.variableName}</div>
-                              <div className="stack-description">{variable.description ?? 'Sem descrição'}</div>
-                            </td>
-                            <td>{variable.isRequired ? 'Sim' : 'Não'}</td>
-                            <td>{variable.defaultValue ?? 'n/a'}</td>
-                            <td>
-                              <input
-                                value={instanceValue}
-                                onChange={(event) =>
-                                  setStackVarDrafts((prev) => ({
-                                    ...prev,
-                                    [variable.variableName]: event.target.value,
-                                  }))
-                                }
-                                placeholder={variable.defaultValue ?? ''}
-                              />
-                            </td>
+                {selectedStackId && (
+                  <div className="stack-vars">
+                    {stackVariables.length === 0 ? (
+                      <div className="empty-state">Nenhuma variável cadastrada para esta stack.</div>
+                    ) : (
+                      <table className="table">
+                        <thead>
+                          <tr>
+                            <th>Variável</th>
+                            <th>Obrigatória</th>
+                            <th>Default</th>
+                            <th>Valor na instância</th>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                        </thead>
+                        <tbody>
+                          {stackVariables.map((variable) => {
+                            const instanceValue = stackVarDrafts[variable.variableName] ?? '';
+                            return (
+                              <tr key={variable.id}>
+                                <td>
+                                  <div className="stack-name">{variable.variableName}</div>
+                                  <div className="stack-description">{variable.description ?? 'Sem descrição'}</div>
+                                </td>
+                                <td>{variable.isRequired ? 'Sim' : 'Não'}</td>
+                                <td>{variable.defaultValue ?? 'n/a'}</td>
+                                <td>
+                                  <input
+                                    value={instanceValue}
+                                    onChange={(event) =>
+                                      setStackVarDrafts((prev) => ({
+                                        ...prev,
+                                        [variable.variableName]: event.target.value,
+                                      }))
+                                    }
+                                    placeholder={variable.defaultValue ?? ''}
+                                  />
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
                 )}
+                <div className="form-actions">
+                  <button type="button" onClick={handleSaveStackVariables} disabled={stacksLoading || !selectedStack}>
+                    Salvar variáveis
+                  </button>
+                  <button type="button" className="secondary" onClick={closeStacksModal}>
+                    Fechar
+                  </button>
+                </div>
               </div>
             )}
-            <div className="form-actions">
-              <button type="button" onClick={handleSaveStackVariables} disabled={stacksLoading || !selectedStack}>
-                Salvar variáveis
-              </button>
-              <button type="button" className="secondary" onClick={closeStacksModal}>
-                Fechar
-              </button>
-            </div>
           </>
         )}
       </Modal>

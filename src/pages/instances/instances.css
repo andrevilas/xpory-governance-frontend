@@ -212,6 +212,42 @@
   margin-top: 12px;
 }
 
+.modal.stacks-modal {
+  width: min(1200px, 92vw);
+  min-height: 75vh;
+}
+
+.instances-page .stacks-modal-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 12px;
+  background: #f1f5f9;
+  width: fit-content;
+}
+
+.instances-page .stacks-modal-tabs button {
+  border: none;
+  background: transparent;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475467;
+  cursor: pointer;
+}
+
+.instances-page .stacks-modal-tabs button.active {
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.instances-page .stacks-tab-content {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
 .instances-page .stacks-modal-grid {
   display: grid;
   gap: 16px;
@@ -251,6 +287,12 @@
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   background: #ffffff;
+}
+
+.instances-page .stacks-tab-content .registry-panel,
+.instances-page .stacks-tab-content .create-stack-card,
+.instances-page .stacks-tab-content .stack-vars {
+  grid-column: 1 / -1;
 }
 
 .instances-page .registry-panel h4 {
