@@ -39,6 +39,10 @@ export async function fetchInventoryStacks(includeRemoved = false): Promise<Inve
   return response.data;
 }
 
+export async function removeInventoryStack(stackId: string): Promise<void> {
+  await api.delete(`/inventory/stacks/${stackId}`);
+}
+
 export async function runInventory(): Promise<{ stacks: number }> {
   const response = await api.post<{ stacks: number }>('/inventory/run');
   return response.data;

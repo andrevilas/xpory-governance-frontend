@@ -6,6 +6,7 @@ import {
   fetchInventoryStacks,
   fetchInventorySummary,
   runInventory,
+  removeInventoryStack,
   InventoryStack,
   InventorySummary,
 } from '../../services/inventory';
@@ -57,6 +58,9 @@ export function DashboardPage(): JSX.Element {
   const [registryUpdateLoading, setRegistryUpdateLoading] = useState(false);
   const [registryUpdateResult, setRegistryUpdateResult] = useState<RegistryUpdateResult | null>(null);
   const [registryRuns, setRegistryRuns] = useState<RegistryRun[]>([]);
+  const [removeTarget, setRemoveTarget] = useState<StackRow | null>(null);
+  const [removeConfirm, setRemoveConfirm] = useState('');
+  const [removeLoading, setRemoveLoading] = useState(false);
   const [errorDetail, setErrorDetail] = useState<{ title: string; message: string; meta: string } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -320,6 +324,31 @@ export function DashboardPage(): JSX.Element {
     }
   };
 
+  const handleRemove = async () => {
+    if (!removeTarget) {
+      return;
+    }
+    setRemoveLoading(true);
+    try {
+      await removeInventoryStack(removeTarget.id);
+      setToastMessage('Stack removida com sucesso');
+      setRemoveTarget(null);
+      setRemoveConfirm('');
+      await loadData();
+    } catch (err) {
+      const apiMessage =
+        typeof err === 'object' && err !== null
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined;
+      const message = apiMessage || (err instanceof Error ? err.message : 'Falha ao remover stack');
+      setToastMessage(message);
+    } finally {
+      setRemoveLoading(false);
+    }
+  };
+
+  const canConfirmRemove = removeConfirm.trim().toLowerCase() === 'remover';
+
   const formatStatus = (status: string) => (status === 'success' ? 'OK' : 'Não concluído');
   const statusClass = (status: string) => (status === 'success' ? 'ok' : 'warn');
   const formatDateTime = (value?: string | null) => {
@@ -498,6 +527,12 @@ export function DashboardPage(): JSX.Element {
                   <td>
                     <button type="button" onClick={() => setSelected(stack)}>
                       Detalhes
+                    </button>
+                    <button type="button" className="danger" onClick={() => {
+                      setRemoveTarget(stack);
+                      setRemoveConfirm('');
+                    }}>
+                      Remover
                     </button>
                   </td>
                 </tr>
@@ -726,6 +761,42 @@ export function DashboardPage(): JSX.Element {
                 </div>
               )}
             </section>
+          </div>
+        </div>
+      )}
+
+      {removeTarget && (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal danger-modal">
+            <header>
+              <h3>Remover stack</h3>
+              <button type="button" onClick={() => setRemoveTarget(null)} disabled={removeLoading}>
+                Fechar
+              </button>
+            </header>
+            <p>
+              Você está prestes a remover a stack <strong>{removeTarget.name}</strong> na instância{' '}
+              <strong>{removeTarget.endpointLabel}</strong>.
+            </p>
+            <p>Para confirmar, digite <strong>remover</strong>.</p>
+            <input
+              value={removeConfirm}
+              onChange={(event) => setRemoveConfirm(event.target.value)}
+              placeholder="Digite remover"
+            />
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="danger"
+                disabled={!canConfirmRemove || removeLoading}
+                onClick={handleRemove}
+              >
+                {removeLoading ? 'Removendo...' : 'Confirmar remoção'}
+              </button>
+              <button type="button" className="secondary" onClick={() => setRemoveTarget(null)} disabled={removeLoading}>
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}

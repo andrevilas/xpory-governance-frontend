@@ -230,6 +230,21 @@
   font-size: 14px;
 }
 
+.table button {
+  border: none;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  background: #0f172a;
+  color: #ffffff;
+  cursor: pointer;
+  margin-right: 6px;
+}
+
+.table button.danger {
+  background: #b91c1c;
+}
+
 .badge {
   padding: 4px 8px;
   border-radius: 999px;
@@ -254,6 +269,30 @@
 
 .stack-detail-modal {
   width: min(980px, 96vw);
+}
+
+.danger-modal input {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #d0d5dd;
+}
+
+.danger-modal .modal-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+}
+
+.danger-modal .modal-actions .secondary {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.danger-modal .modal-actions .danger {
+  background: #b91c1c;
+  color: #ffffff;
 }
 
 .stack-summary {
