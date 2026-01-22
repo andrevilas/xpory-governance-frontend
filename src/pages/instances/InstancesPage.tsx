@@ -516,7 +516,6 @@ export function InstancesPage(): JSX.Element {
     setNewStackDescription('');
     setMappingError(null);
     setMappingSuccess(null);
-    setStacksTab('global');
     if (fromRemote && selectedRemoteStack && selectedInstance) {
       try {
         const compose = await fetchInstanceStackCompose(
@@ -683,39 +682,17 @@ export function InstancesPage(): JSX.Element {
         selectedRemoteStack.id,
         selectedRemoteStack.endpointId,
       );
-      const importResult = await importVariablesForStack(selectedStackId, compose, selectedInstance.id);
-      await loadStackVariables(selectedStackId, selectedInstance.id);
-      setMappingSuccess(
-        `Importação concluída. ${importResult.created} variáveis importadas, ${importResult.valuesApplied} valores aplicados.`,
-      );
-    } catch (err) {
-      void err;
-      setMappingError('Falha ao importar variáveis da stack remota.');
-    } finally {
-      setMappingLoading(false);
-    }
-  };
-
-  const handleUpdateComposeFromRemote = async () => {
-    if (!selectedRemoteStack || !selectedInstance || !selectedStackId) {
-      return;
-    }
-    setMappingLoading(true);
-    setMappingError(null);
-    setMappingSuccess(null);
-    try {
-      const compose = await fetchInstanceStackCompose(
-        selectedInstance.id,
-        selectedRemoteStack.id,
-        selectedRemoteStack.endpointId,
-      );
       await updateStackLocal(selectedStackId, { composeTemplate: compose });
       const stacksResult = await fetchStacksLocal();
       setStacks(stacksResult);
-      setMappingSuccess('Compose atualizado com sucesso a partir da stack remota.');
+      const importResult = await importVariablesForStack(selectedStackId, compose, selectedInstance.id);
+      await loadStackVariables(selectedStackId, selectedInstance.id);
+      setMappingSuccess(
+        `Atualização concluída. ${importResult.created} variáveis importadas, ${importResult.valuesApplied} valores aplicados.`,
+      );
     } catch (err) {
       void err;
-      setMappingError('Falha ao atualizar compose da stack global.');
+      setMappingError('Falha ao atualizar stack global a partir da remota.');
     } finally {
       setMappingLoading(false);
     }
@@ -1021,18 +998,10 @@ export function InstancesPage(): JSX.Element {
                   <div className="stack-actions">
                     <button
                       type="button"
-                      onClick={() => void handleUpdateComposeFromRemote()}
-                      disabled={!selectedRemoteStack || !selectedStackId || mappingLoading}
-                    >
-                      {mappingLoading ? 'Atualizando...' : 'Atualizar compose da global'}
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary"
                       onClick={() => void handleMapRemoteToGlobal()}
                       disabled={!selectedRemoteStack || !selectedStackId || mappingLoading}
                     >
-                      {mappingLoading ? 'Importando...' : 'Importar variáveis do remoto'}
+                      {mappingLoading ? 'Atualizando...' : 'Atualizar compose e importar variáveis'}
                     </button>
                     <button
                       type="button"
