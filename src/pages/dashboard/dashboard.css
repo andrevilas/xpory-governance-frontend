@@ -576,3 +576,59 @@
   padding: 6px 4px;
   border-bottom: 1px solid #e5e7eb;
 }
+
+@media (max-width: 900px) {
+  .table-tools {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .history-filters {
+    flex-wrap: wrap;
+  }
+
+  .table {
+    display: block;
+    overflow-x: auto;
+  }
+
+  .table th,
+  .table td {
+    white-space: nowrap;
+  }
+
+  .stack-summary {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .stack-redeploy {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .section {
+    padding: 16px;
+  }
+
+  .table-pagination {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .table-pagination .page-controls {
+    flex-wrap: wrap;
+  }
+
+  .stack-metadata {
+    grid-template-columns: 1fr;
+  }
+
+  .registry-log table,
+  .audit-results table {
+    display: block;
+    overflow-x: auto;
+  }
+}

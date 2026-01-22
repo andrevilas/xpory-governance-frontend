@@ -143,4 +143,18 @@
   .notifications-page .form-grid {
     grid-template-columns: 1fr;
   }
+
+  .notifications-page .form-actions {
+    flex-wrap: wrap;
+  }
+
+  .notifications-page table {
+    display: block;
+    overflow-x: auto;
+  }
+
+  .notifications-page th,
+  .notifications-page td {
+    white-space: nowrap;
+  }
 }

@@ -506,6 +506,10 @@
 }
 
 @media (max-width: 720px) {
+  .stacks-local-page .form-actions {
+    flex-wrap: wrap;
+  }
+
   .stacks-local-page .table-tools {
     flex-direction: column;
     align-items: stretch;
@@ -519,5 +523,26 @@
 
   .stacks-local-page .deploy-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .stacks-local-page .card {
+    padding: 16px;
+  }
+
+  .stacks-local-page table {
+    display: block;
+    overflow-x: auto;
+  }
+
+  .stacks-local-page th,
+  .stacks-local-page td {
+    white-space: nowrap;
+  }
+
+  .stacks-local-page .stack-details-tabs,
+  .stack-details-modal .stack-details-tabs {
+    flex-wrap: wrap;
   }
 }

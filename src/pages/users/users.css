@@ -121,3 +121,20 @@
   background: #e2e8f0;
   color: #0f172a;
 }
+
+@media (max-width: 720px) {
+  .users-page .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .users-page table {
+    display: block;
+    overflow-x: auto;
+  }
+
+  .users-page th,
+  .users-page td {
+    white-space: nowrap;
+  }
+}

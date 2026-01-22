@@ -448,3 +448,60 @@
   grid-column: 1 / -1;
   margin-top: 12px;
 }
+
+@media (max-width: 900px) {
+  .instances-page .form-actions {
+    flex-wrap: wrap;
+  }
+
+  .instances-page .table-tools {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .instances-page table {
+    display: block;
+    overflow-x: auto;
+  }
+
+  .instances-page th,
+  .instances-page td {
+    white-space: nowrap;
+  }
+
+  .instances-page .modal-summary {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .stacks-modal .stacks-modal-tabs {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 640px) {
+  .instances-page .card {
+    padding: 16px;
+  }
+
+  .instances-page .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .instances-page .actions {
+    flex-wrap: wrap;
+  }
+
+  .modal.stacks-modal {
+    min-height: 80vh;
+    width: min(100%, 96vw);
+  }
+
+  .stacks-modal .stacks-tab-content {
+    grid-template-columns: 1fr;
+  }
+
+  .instances-page .stacks-modal-grid {
+    grid-template-columns: 1fr;
+  }
+}

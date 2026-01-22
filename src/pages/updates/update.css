@@ -185,3 +185,24 @@
   text-align: left;
   vertical-align: top;
 }
+
+@media (max-width: 720px) {
+  .update-card {
+    padding: 16px;
+  }
+
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .diff-table {
+    display: block;
+    overflow-x: auto;
+  }
+
+  .diff-table th,
+  .diff-table td {
+    white-space: nowrap;
+  }
+}
