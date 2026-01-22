@@ -71,6 +71,14 @@
   font-weight: 600;
 }
 
+.modal .checkbox-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #334155;
+}
+
 .modal input,
 .modal select,
 .modal textarea {
@@ -115,4 +123,9 @@
 .modal .form-actions button.secondary {
   background: #e2e8f0;
   color: #0f172a;
+}
+
+.modal .helper-text {
+  font-size: 12px;
+  color: #475467;
 }

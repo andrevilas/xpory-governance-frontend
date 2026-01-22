@@ -29,6 +29,7 @@ import {
   StackInstanceVariable,
   StackLocal,
   StackLocalVariable,
+  deployStackLocal,
   updateStackLocal,
   upsertInstanceVariable,
   deleteInstanceVariable,
@@ -88,6 +89,10 @@ export function InstancesPage(): JSX.Element {
   const [mappingError, setMappingError] = useState<string | null>(null);
   const [mappingSuccess, setMappingSuccess] = useState<string | null>(null);
   const [confirmVariablesOpen, setConfirmVariablesOpen] = useState(false);
+  const [confirmDeployOpen, setConfirmDeployOpen] = useState(false);
+  const [confirmDeployText, setConfirmDeployText] = useState('');
+  const [deployAfterSave, setDeployAfterSave] = useState(false);
+  const [deployingStack, setDeployingStack] = useState(false);
   const [inventoryStacks, setInventoryStacks] = useState<InventoryStack[]>([]);
   const [registryImages, setRegistryImages] = useState<RegistryImageState[]>([]);
   const [registryLoading, setRegistryLoading] = useState(false);
@@ -134,6 +139,15 @@ export function InstancesPage(): JSX.Element {
     [instanceStacks, selectedRemoteStackId],
   );
 
+  const selectedRemoteForGlobal = useMemo(() => {
+    if (!selectedStack) {
+      return null;
+    }
+    return (
+      instanceStacks.find((stack) => stack.name.toLowerCase() === selectedStack.name.toLowerCase()) ?? null
+    );
+  }, [instanceStacks, selectedStack]);
+
   const matchedInventoryStack = useMemo(() => {
     if (!selectedInstance || !selectedRemoteStack) {
       return null;
@@ -175,6 +189,17 @@ export function InstancesPage(): JSX.Element {
     instanceVariables.forEach((entry) => map.set(entry.variableName, entry));
     return map;
   }, [instanceVariables]);
+
+  const hasVariableChanges = useMemo(() => {
+    if (!selectedStackId) {
+      return false;
+    }
+    return stackVariables.some((variable) => {
+      const draft = (stackVarDrafts[variable.variableName] ?? '').trim();
+      const current = (instanceVariableMap.get(variable.variableName)?.value ?? '').trim();
+      return draft !== current;
+    });
+  }, [instanceVariableMap, selectedStackId, stackVarDrafts, stackVariables]);
 
   const loadInstances = async () => {
     setLoading(true);
@@ -452,6 +477,10 @@ export function InstancesPage(): JSX.Element {
     setMappingError(null);
     setMappingSuccess(null);
     setConfirmVariablesOpen(false);
+    setConfirmDeployOpen(false);
+    setConfirmDeployText('');
+    setDeployAfterSave(false);
+    setDeployingStack(false);
   };
 
   const loadStackVariables = async (stackId: string, instanceId: string) => {
@@ -507,6 +536,29 @@ export function InstancesPage(): JSX.Element {
       setStacksError('Falha ao salvar variáveis da instância.');
     } finally {
       setStacksLoading(false);
+    }
+  };
+
+  const handleDeployStack = async () => {
+    if (!selectedStackId || !selectedId) {
+      return;
+    }
+    setStacksError(null);
+    setMappingError(null);
+    setDeployingStack(true);
+    try {
+      const result = await deployStackLocal(selectedStackId, { instanceIds: [selectedId], dryRun: false });
+      const failure = result.find((item) => item.status === 'failed');
+      if (failure) {
+        setStacksError(failure.message || 'Falha ao realizar deploy.');
+        return;
+      }
+      setMappingSuccess('Deploy executado com sucesso.');
+    } catch (err) {
+      void err;
+      setStacksError('Falha ao realizar deploy.');
+    } finally {
+      setDeployingStack(false);
     }
   };
 
@@ -1143,6 +1195,20 @@ export function InstancesPage(): JSX.Element {
                       </select>
                     </label>
                   </div>
+                  {!selectedRemoteForGlobal && selectedStackId ? (
+                    <div className="stack-actions">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setConfirmDeployText('');
+                          setConfirmDeployOpen(true);
+                        }}
+                        disabled={deployingStack}
+                      >
+                        {deployingStack ? 'Executando...' : 'Fazer deploy nesta instância'}
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
 
                 {selectedStackId && (
@@ -1194,7 +1260,7 @@ export function InstancesPage(): JSX.Element {
                   <button
                     type="button"
                     onClick={() => setConfirmVariablesOpen(true)}
-                    disabled={stacksLoading || !selectedStack}
+                    disabled={stacksLoading || !selectedStack || !hasVariableChanges}
                   >
                     Salvar variáveis
                   </button>
@@ -1258,17 +1324,62 @@ export function InstancesPage(): JSX.Element {
         <p className="helper-text">
           Deseja aplicar as variáveis informadas para esta instância? Isso substituirá os valores atuais.
         </p>
+        {selectedRemoteForGlobal ? (
+          <label className="checkbox-toggle">
+            <input
+              type="checkbox"
+              checked={deployAfterSave}
+              onChange={(event) => setDeployAfterSave(event.target.checked)}
+            />
+            Executar deploy após salvar as variáveis
+          </label>
+        ) : (
+          <p className="helper-text">A stack global ainda não está presente remotamente.</p>
+        )}
         <div className="form-actions">
           <button
             type="button"
             onClick={() => {
               setConfirmVariablesOpen(false);
               void handleSaveStackVariables();
+              if (deployAfterSave) {
+                void handleDeployStack();
+              }
             }}
           >
             Confirmar
           </button>
           <button type="button" className="secondary" onClick={() => setConfirmVariablesOpen(false)}>
+            Cancelar
+          </button>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={confirmDeployOpen}
+        title="Confirmar deploy"
+        onClose={() => setConfirmDeployOpen(false)}
+      >
+        <p className="helper-text">
+          Para confirmar o deploy desta stack, digite <strong>deploy</strong>.
+        </p>
+        <input
+          value={confirmDeployText}
+          onChange={(event) => setConfirmDeployText(event.target.value)}
+          placeholder="digite deploy"
+        />
+        <div className="form-actions">
+          <button
+            type="button"
+            onClick={() => {
+              setConfirmDeployOpen(false);
+              void handleDeployStack();
+            }}
+            disabled={confirmDeployText.trim().toLowerCase() !== 'deploy'}
+          >
+            Confirmar deploy
+          </button>
+          <button type="button" className="secondary" onClick={() => setConfirmDeployOpen(false)}>
             Cancelar
           </button>
         </div>
