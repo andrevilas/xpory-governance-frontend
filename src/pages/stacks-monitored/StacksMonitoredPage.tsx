@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { AppLayout } from '../../components/layout/AppLayout';
+import { StackRedeployModal } from '../../components/stacks/StackRedeployModal';
 import { fetchInventoryStacks, InventoryStack } from '../../services/inventory';
 import { fetchStacksLocal, StackLocal } from '../../services/stacksLocal';
 import '../dashboard/dashboard.css';
@@ -9,6 +10,7 @@ import '../dashboard/dashboard.css';
 type StackRow = {
   id: string;
   name: string;
+  instanceId: string | null;
   instanceLabel: string;
   instanceName: string | null;
   status: 'ok' | 'warn';
@@ -29,9 +31,11 @@ export function StacksMonitoredPage(): JSX.Element {
   const [stacksPage, setStacksPage] = useState(1);
   const [stacksPageSize, setStacksPageSize] = useState(10);
   const [stacks, setStacks] = useState<InventoryStack[]>([]);
+  const [localStacks, setLocalStacks] = useState<StackLocal[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showRemoved, setShowRemoved] = useState(false);
   const [digestOnlyFilter, setDigestOnlyFilter] = useState(searchParams.get('digestDrift') === 'true');
   const [instanceDriftOnly, setInstanceDriftOnly] = useState(
@@ -39,6 +43,8 @@ export function StacksMonitoredPage(): JSX.Element {
   );
   const [attentionOnly, setAttentionOnly] = useState(searchParams.get('attention') === 'true');
   const [globalOnly, setGlobalOnly] = useState(searchParams.get('globalOnly') !== 'false');
+  const [redeployTarget, setRedeployTarget] = useState<InventoryStack | null>(null);
+  const [redeployOpen, setRedeployOpen] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -48,6 +54,7 @@ export function StacksMonitoredPage(): JSX.Element {
         fetchInventoryStacks(showRemoved),
         fetchStacksLocal(),
       ]);
+      setLocalStacks(stacksLocalResult ?? []);
       if (globalOnly) {
         const globalNames = buildGlobalNameSet(stacksLocalResult ?? []);
         setStacks(stacksResult.filter((stack) => globalNames.has(stack.name.toLowerCase())));
@@ -70,6 +77,7 @@ export function StacksMonitoredPage(): JSX.Element {
     return stacks.map((stack) => ({
       id: stack.id,
       name: stack.name,
+      instanceId: stack.instanceId,
       status: stack.outdated || stack.instanceDrifted || stack.digestDrifted ? 'warn' : 'ok',
       instanceLabel: stack.instanceName ?? `Endpoint ${stack.endpointId}`,
       instanceName: stack.instanceName,
@@ -80,6 +88,17 @@ export function StacksMonitoredPage(): JSX.Element {
       isAccessible: stack.status === 1 && !stack.removedAt,
     }));
   }, [stacks]);
+
+  const globalStackNames = useMemo(
+    () => new Set(localStacks.map((stack) => stack.name.toLowerCase())),
+    [localStacks],
+  );
+
+  const handleOpenRedeploy = (row: StackRow) => {
+    const target = stacks.find((stack) => stack.id === row.id) ?? null;
+    setRedeployTarget(target);
+    setRedeployOpen(true);
+  };
 
   const stackOptions = useMemo(() => {
     const names = new Set<string>();
@@ -224,16 +243,17 @@ export function StacksMonitoredPage(): JSX.Element {
               <tr>
                 <th>Nome</th>
                 <th>Status</th>
+                <th>Ações</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={2}>Carregando...</td>
+                  <td colSpan={3}>Carregando...</td>
                 </tr>
               ) : pagedStacks.length === 0 ? (
                 <tr>
-                  <td colSpan={2}>Nenhuma stack encontrada.</td>
+                  <td colSpan={3}>Nenhuma stack encontrada.</td>
                 </tr>
               ) : (
                 pagedStacks.map((stack) => (
@@ -263,6 +283,13 @@ export function StacksMonitoredPage(): JSX.Element {
                           {stack.digestDrifted && <span className="badge problem">Digest</span>}
                         </div>
                       )}
+                    </td>
+                    <td>
+                      {globalStackNames.has(stack.name.toLowerCase()) && stack.instanceId && !stack.removedAt ? (
+                        <button type="button" onClick={() => handleOpenRedeploy(stack)}>
+                          Redeploy
+                        </button>
+                      ) : null}
                     </td>
                   </tr>
                 ))
@@ -306,6 +333,24 @@ export function StacksMonitoredPage(): JSX.Element {
           </div>
         </section>
       </div>
+      <StackRedeployModal
+        isOpen={redeployOpen}
+        stack={redeployTarget}
+        localStacks={localStacks}
+        onClose={() => {
+          setRedeployOpen(false);
+          setRedeployTarget(null);
+        }}
+        onSuccess={() => {
+          setToastMessage('Redeploy realizado com sucesso.');
+          void loadData();
+        }}
+      />
+      {toastMessage && (
+        <div className="toast" role="status" onAnimationEnd={() => setToastMessage(null)}>
+          {toastMessage}
+        </div>
+      )}
     </AppLayout>
   );
 }

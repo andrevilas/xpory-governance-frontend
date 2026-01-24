@@ -19,7 +19,8 @@ import {
   InventoryStack,
   InventorySummary,
 } from '../../services/inventory';
-import { deployStackLocal, fetchStackLocalPreview, fetchStacksLocal, StackLocal } from '../../services/stacksLocal';
+import { fetchStacksLocal, StackLocal } from '../../services/stacksLocal';
+import { StackRedeployModal } from '../../components/stacks/StackRedeployModal';
 import {
   fetchRegistryRuns,
   fetchStackRegistryImages,
@@ -79,11 +80,10 @@ export function DashboardPage(): JSX.Element {
   const [removeTarget, setRemoveTarget] = useState<StackRow | null>(null);
   const [removeConfirm, setRemoveConfirm] = useState('');
   const [removeLoading, setRemoveLoading] = useState(false);
-  const [errorDetail, setErrorDetail] = useState<{ title: string; message: string; meta: string } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [redeployLoading, setRedeployLoading] = useState(false);
-  const [redeployError, setRedeployError] = useState<string | null>(null);
+  const [redeployTarget, setRedeployTarget] = useState<InventoryStack | null>(null);
+  const [redeployOpen, setRedeployOpen] = useState(false);
 
   const auditFailedCount = useMemo(() => {
     if (!auditSummary) {
@@ -147,6 +147,17 @@ export function DashboardPage(): JSX.Element {
     }));
   }, [stacks]);
 
+  const globalStackNames = useMemo(
+    () => new Set(localStacks.map((stack) => stack.name.toLowerCase())),
+    [localStacks],
+  );
+
+  const handleOpenRedeploy = (row: StackRow) => {
+    const target = stacks.find((stack) => stack.id === row.id) ?? null;
+    setRedeployTarget(target);
+    setRedeployOpen(true);
+  };
+
   const stackOptions = useMemo(() => {
     const names = new Set<string>();
     stackRows.forEach((row) => names.add(row.name));
@@ -158,13 +169,6 @@ export function DashboardPage(): JSX.Element {
       setSelected(null);
     }
   }, [stackRows, selected]);
-
-  useEffect(() => {
-    if (!selected) {
-      setRedeployError(null);
-      setRedeployLoading(false);
-    }
-  }, [selected]);
 
   const instanceOptions = useMemo(() => {
     const names = new Set<string>();
@@ -464,54 +468,6 @@ export function DashboardPage(): JSX.Element {
     URL.revokeObjectURL(url);
   };
 
-  const handleRedeploy = async () => {
-    if (!selected) {
-      return;
-    }
-    setRedeployError(null);
-    const instanceId = selected.instanceId;
-    if (!instanceId) {
-      setRedeployError('Instância não encontrada para a stack selecionada.');
-      return;
-    }
-    const localStack = localStacks.find(
-      (stack) => stack.name.toLowerCase() === selected.name.toLowerCase(),
-    );
-    if (!localStack) {
-      setRedeployError('Stack global não encontrada para esta stack.');
-      return;
-    }
-    setRedeployLoading(true);
-    try {
-      const preview = await fetchStackLocalPreview(localStack.id, instanceId);
-      if (!preview.isValid) {
-        const missing = preview.missingVariables.map((name) => `- ${name}`).join('\n') || 'n/a';
-        const unknown = preview.unknownVariables.map((name) => `- ${name}`).join('\n') || 'n/a';
-        setErrorDetail({
-          title: 'Variáveis incompletas',
-          message: 'Preencha as variáveis obrigatórias antes de realizar o redeploy.',
-          meta: `Faltantes:\n${missing}\n\nDesconhecidas:\n${unknown}`,
-        });
-        return;
-      }
-      const [result] = await deployStackLocal(localStack.id, { instanceIds: [instanceId], dryRun: false });
-      if (!result || result.status !== 'success') {
-        setRedeployError(
-          result?.errors?.length
-            ? result.errors.join(' | ')
-            : result?.message || 'Falha ao realizar redeploy.',
-        );
-        return;
-      }
-      setToastMessage('Redeploy realizado com sucesso.');
-    } catch (err) {
-      void err;
-      setRedeployError('Falha ao realizar redeploy.');
-    } finally {
-      setRedeployLoading(false);
-    }
-  };
-
   return (
     <AppLayout
       title="Dashboard"
@@ -670,6 +626,11 @@ export function DashboardPage(): JSX.Element {
                     )}
                   </td>
                   <td>
+                    {globalStackNames.has(stack.name.toLowerCase()) && stack.instanceId && !stack.removedAt ? (
+                      <button type="button" onClick={() => handleOpenRedeploy(stack)}>
+                        Redeploy
+                      </button>
+                    ) : null}
                     <button type="button" onClick={() => setSelected(stack)}>
                       Detalhes
                     </button>
@@ -836,14 +797,20 @@ export function DashboardPage(): JSX.Element {
                 <span className="badge neutral">{selected.version}</span>
               </div>
             </div>
-            {(selected.outdated || selected.instanceDrifted || selected.digestDrifted) && (
+            {globalStackNames.has(selected.name.toLowerCase()) && selected.instanceId ? (
               <div className="stack-redeploy">
-                <button type="button" onClick={handleRedeploy} disabled={redeployLoading}>
-                  {redeployLoading ? 'Redeploy em andamento...' : 'Redeploy stack'}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = stacks.find((stack) => stack.id === selected.id) ?? null;
+                    setRedeployTarget(target);
+                    setRedeployOpen(true);
+                  }}
+                >
+                  Redeploy stack
                 </button>
-                {redeployError && <span className="inline-alert">{redeployError}</span>}
               </div>
-            )}
+            ) : null}
 
             <div className="stack-metadata">
               <div>
@@ -1036,40 +1003,19 @@ export function DashboardPage(): JSX.Element {
         </div>
       )}
 
-      {errorDetail && (
-        <div className="modal-overlay" role="dialog" aria-modal="true">
-          <div className="modal">
-            <header>
-              <h3>{errorDetail.title}</h3>
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(errorDetail.message);
-                    setToastMessage('Mensagem copiada');
-                  }}
-                >
-                  Copiar detalhe
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(`${errorDetail.message}\n\n${errorDetail.meta}`);
-                    setToastMessage('Detalhes copiados');
-                  }}
-                >
-                  Copiar tudo
-                </button>
-                <button type="button" onClick={() => setErrorDetail(null)}>
-                  Fechar
-                </button>
-              </div>
-            </header>
-            <pre className="error-detail">{errorDetail.message}</pre>
-            <pre className="error-detail meta">{errorDetail.meta}</pre>
-          </div>
-        </div>
-      )}
+      <StackRedeployModal
+        isOpen={redeployOpen}
+        stack={redeployTarget}
+        localStacks={localStacks}
+        onClose={() => {
+          setRedeployOpen(false);
+          setRedeployTarget(null);
+        }}
+        onSuccess={() => {
+          setToastMessage('Redeploy realizado com sucesso.');
+          void loadData();
+        }}
+      />
 
       {toastMessage && (
         <div className="toast" role="status" onAnimationEnd={() => setToastMessage(null)}>

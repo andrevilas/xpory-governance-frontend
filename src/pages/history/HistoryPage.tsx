@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { AppLayout } from '../../components/layout/AppLayout';
+import { StackRedeployModal } from '../../components/stacks/StackRedeployModal';
 import { fetchInventoryStacks, InventoryStack } from '../../services/inventory';
+import { fetchStacksLocal, StackLocal } from '../../services/stacksLocal';
 import '../dashboard/dashboard.css';
 
 type HistoryRow = {
   id: string;
+  instanceId: string | null;
   instanceLabel: string;
   instanceName: string | null;
   name: string;
@@ -17,8 +20,10 @@ type HistoryRow = {
 
 export function HistoryPage(): JSX.Element {
   const [stacks, setStacks] = useState<InventoryStack[]>([]);
+  const [localStacks, setLocalStacks] = useState<StackLocal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [stackFilter, setStackFilter] = useState('');
   const [instanceFilter, setInstanceFilter] = useState('');
   const [attentionOnly, setAttentionOnly] = useState(false);
@@ -27,13 +32,16 @@ export function HistoryPage(): JSX.Element {
   const [digestDriftOnly, setDigestDriftOnly] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyPageSize, setHistoryPageSize] = useState(10);
+  const [redeployTarget, setRedeployTarget] = useState<InventoryStack | null>(null);
+  const [redeployOpen, setRedeployOpen] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const result = await fetchInventoryStacks();
+      const [result, stacksLocal] = await Promise.all([fetchInventoryStacks(), fetchStacksLocal()]);
       setStacks(result);
+      setLocalStacks(stacksLocal ?? []);
     } catch (err) {
       void err;
       setError('Não foi possível carregar o histórico.');
@@ -63,6 +71,7 @@ export function HistoryPage(): JSX.Element {
         const status: HistoryRow['status'] = problems.length > 0 ? 'Atenção' : 'OK';
         return {
           id: stack.id,
+          instanceId: stack.instanceId,
           instanceLabel: stack.instanceName ?? `Endpoint ${stack.endpointId}`,
           instanceName: stack.instanceName,
           name: stack.name,
@@ -127,6 +136,17 @@ export function HistoryPage(): JSX.Element {
     const start = (historyPage - 1) * historyPageSize;
     return filteredRows.slice(start, start + historyPageSize);
   }, [filteredRows, historyPage, historyPageSize]);
+
+  const globalStackNames = useMemo(
+    () => new Set(localStacks.map((stack) => stack.name.toLowerCase())),
+    [localStacks],
+  );
+
+  const handleOpenRedeploy = (row: HistoryRow) => {
+    const target = stacks.find((stack) => stack.id === row.id) ?? null;
+    setRedeployTarget(target);
+    setRedeployOpen(true);
+  };
 
   return (
     <AppLayout title="Histórico operacional">
@@ -198,16 +218,17 @@ export function HistoryPage(): JSX.Element {
                 <th>Status</th>
                 <th>Quando</th>
                 <th>Problema detectado</th>
+                <th>Ações</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5}>Carregando...</td>
+                  <td colSpan={6}>Carregando...</td>
                 </tr>
               ) : pagedHistory.length === 0 ? (
                 <tr>
-                  <td colSpan={5}>Nenhum registro encontrado.</td>
+                  <td colSpan={6}>Nenhum registro encontrado.</td>
                 </tr>
               ) : (
                 pagedHistory.map((row) => (
@@ -230,6 +251,13 @@ export function HistoryPage(): JSX.Element {
                           <span className="badge problem-ok">OK</span>
                         )}
                       </div>
+                    </td>
+                    <td>
+                      {globalStackNames.has(row.name.toLowerCase()) && row.instanceId ? (
+                        <button type="button" onClick={() => handleOpenRedeploy(row)}>
+                          Redeploy
+                        </button>
+                      ) : null}
                     </td>
                   </tr>
                 ))
@@ -273,6 +301,24 @@ export function HistoryPage(): JSX.Element {
           </div>
         </section>
       </div>
+      <StackRedeployModal
+        isOpen={redeployOpen}
+        stack={redeployTarget}
+        localStacks={localStacks}
+        onClose={() => {
+          setRedeployOpen(false);
+          setRedeployTarget(null);
+        }}
+        onSuccess={() => {
+          setToastMessage('Redeploy realizado com sucesso.');
+          void loadData();
+        }}
+      />
+      {toastMessage && (
+        <div className="toast" role="status" onAnimationEnd={() => setToastMessage(null)}>
+          {toastMessage}
+        </div>
+      )}
     </AppLayout>
   );
 }

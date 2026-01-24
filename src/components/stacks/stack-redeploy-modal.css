@@ -1,0 +1,17 @@
+.redeploy-summary {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.redeploy-stack {
+  display: grid;
+  gap: 4px;
+  padding: 8px 12px;
+  background: #f6f6f6;
+  border-radius: 8px;
+}
+
+.redeploy-variables-table input {
+  width: 100%;
+}

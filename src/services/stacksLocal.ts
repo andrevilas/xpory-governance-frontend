@@ -56,6 +56,11 @@ export type DeployStackLocalRequest = {
   targetVersion?: string;
 };
 
+export type RedeployStackLocalRequest = {
+  instanceIds: string[];
+  userId?: string;
+};
+
 export type DeployStackLocalResult = {
   instanceId: string;
   portainerStackId: number | null;
@@ -190,5 +195,13 @@ export const deployStackLocal = async (
   payload: DeployStackLocalRequest,
 ): Promise<DeployStackLocalResult[]> => {
   const { data } = await api.post(`/stacks/local/${stackId}/deploy`, payload);
+  return data;
+};
+
+export const redeployStackLocal = async (
+  stackId: string,
+  payload: RedeployStackLocalRequest,
+): Promise<DeployStackLocalResult[]> => {
+  const { data } = await api.post(`/stacks/local/${stackId}/redeploy`, payload);
   return data;
 };
