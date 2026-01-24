@@ -79,7 +79,7 @@ export function AppLayout({ title, children, headerAction }: AppLayoutProps): JS
           </button>
           <button
             type="button"
-            className={`nav-item${location.pathname.includes('/app/stacks') ? ' active' : ''}`}
+            className={`nav-item${location.pathname.startsWith('/app/stacks') && !location.pathname.startsWith('/app/stacks-monitored') ? ' active' : ''}`}
             onClick={() => handleNavigate('/app/stacks')}
           >
             Stacks Globais
