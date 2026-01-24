@@ -3,6 +3,9 @@ import { api } from './api';
 export type AuditResult = {
   id: string;
   stackUuid: string;
+  stackName?: string;
+  instanceName?: string | null;
+  endpointId?: number;
   image: string;
   currentTag: string;
   latestTag: string;
@@ -13,6 +16,30 @@ export type AuditResult = {
 
 export async function fetchAuditResults(stackUuid: string): Promise<AuditResult[]> {
   const response = await api.get<AuditResult[]>(`/audit/stacks/${stackUuid}`);
+  return response.data;
+}
+
+export async function fetchAuditResultsAll(params?: {
+  stackUuid?: string;
+  stackName?: string;
+  instanceName?: string;
+  updateAvailable?: boolean;
+  riskLevel?: string;
+  limit?: number;
+}): Promise<AuditResult[]> {
+  const response = await api.get<AuditResult[]>('/audit/results', {
+    params,
+  });
+  return response.data;
+}
+
+export type AuditSummary = {
+  failedRuns: number;
+  failedResults: number;
+};
+
+export async function fetchAuditSummary(): Promise<AuditSummary> {
+  const response = await api.get<AuditSummary>('/audit/summary');
   return response.data;
 }
 

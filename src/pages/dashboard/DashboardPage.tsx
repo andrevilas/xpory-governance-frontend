@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { AppLayout } from '../../components/layout/AppLayout';
-import { fetchAuditResults, fetchAuditRuns, runAudit, AuditResult, JobRun as AuditRun } from '../../services/audit';
+import {
+  fetchAuditResults,
+  fetchAuditRuns,
+  fetchAuditSummary,
+  runAudit,
+  AuditResult,
+  JobRun as AuditRun,
+  AuditSummary,
+} from '../../services/audit';
 import {
   fetchInventoryStacks,
   fetchInventorySummary,
@@ -54,9 +63,10 @@ export function DashboardPage(): JSX.Element {
   const [auditLoading, setAuditLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [auditRuns, setAuditRuns] = useState<AuditRun[]>([]);
+  const [auditSummary, setAuditSummary] = useState<AuditSummary | null>(null);
   const [digestOnlyFilter, setDigestOnlyFilter] = useState(false);
   const [showRemoved, setShowRemoved] = useState(false);
-  const [globalOnly, setGlobalOnly] = useState(false);
+  const [globalOnly, setGlobalOnly] = useState(true);
   const [localStacks, setLocalStacks] = useState<StackLocal[]>([]);
   const [registryImages, setRegistryImages] = useState<RegistryImageState[]>([]);
   const [registryLoading, setRegistryLoading] = useState(false);
@@ -75,19 +85,22 @@ export function DashboardPage(): JSX.Element {
   const [redeployLoading, setRedeployLoading] = useState(false);
   const [redeployError, setRedeployError] = useState<string | null>(null);
 
-  const auditFailedCount = useMemo(
-    () => auditRuns.filter((run) => run.status === 'failed').length,
-    [auditRuns],
-  );
+  const auditFailedCount = useMemo(() => {
+    if (!auditSummary) {
+      return auditRuns.filter((run) => run.status === 'failed').length;
+    }
+    return auditSummary.failedRuns + auditSummary.failedResults;
+  }, [auditRuns, auditSummary]);
 
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [stacksResult, summaryResult, auditRunsResult, stacksLocalResult] = await Promise.all([
+      const [stacksResult, summaryResult, auditRunsResult, auditSummaryResult, stacksLocalResult] = await Promise.all([
         fetchInventoryStacks(showRemoved),
         fetchInventorySummary(),
         fetchAuditRuns(8),
+        fetchAuditSummary(),
         fetchStacksLocal(),
       ]);
       if (globalOnly) {
@@ -104,6 +117,7 @@ export function DashboardPage(): JSX.Element {
       setLocalStacks(stacksLocalResult ?? []);
       setSummary(summaryResult);
       setAuditRuns(auditRunsResult);
+      setAuditSummary(auditSummaryResult);
     } catch (err) {
       void err;
       setError('Não foi possível carregar dados do inventário.');
@@ -312,13 +326,15 @@ export function DashboardPage(): JSX.Element {
     setRefreshing(true);
     setError(null);
     try {
-      const [auditRunsResult, summaryResult, stacksResult, stacksLocalResult] = await Promise.all([
+      const [auditRunsResult, auditSummaryResult, summaryResult, stacksResult, stacksLocalResult] = await Promise.all([
         fetchAuditRuns(8),
+        fetchAuditSummary(),
         fetchInventorySummary(),
         fetchInventoryStacks(showRemoved),
         globalOnly ? fetchStacksLocal() : Promise.resolve([]),
       ]);
       setAuditRuns(auditRunsResult);
+      setAuditSummary(auditSummaryResult);
       setSummary(summaryResult);
       if (globalOnly) {
         const globalNames = new Set(
@@ -523,40 +539,46 @@ export function DashboardPage(): JSX.Element {
     >
       <div className="dashboard">
         <section className="card-grid" data-testid="dashboard.summary.cards">
-          <div className="card">
+          <Link className="card card-link" to="/app/instances">
             <h3>Instâncias</h3>
             <div className="value">{loading ? '-' : summary?.instances ?? 0}</div>
-          </div>
-          <div className="card">
+          </Link>
+          <Link className="card card-link" to="/app/stacks-monitored">
             <h3>Stacks monitoradas</h3>
             <div className="value" data-testid="dashboard.kpi.inventory.count">
               {loading ? '-' : summary?.stacks ?? 0}
             </div>
-          </div>
-          <div className="card">
+          </Link>
+          <Link className="card card-link" to="/app/auditing?failed=true">
             <h3>Auditorias com falha</h3>
             <div className="value" data-testid="dashboard.kpi.updates.count">
               {loading ? '-' : auditFailedCount}
             </div>
-          </div>
-          <div className="card">
+          </Link>
+          <Link className="card card-link" to="/app/stacks-monitored?attention=true">
             <h3>Atenção necessária</h3>
             <div className="value" data-testid="dashboard.kpi.alerts.count">
-              {loading ? '-' : summary?.outdatedStacks ?? 0}
+              {loading ? '-' : summary?.attentionStacks ?? 0}
             </div>
-          </div>
-          <div className="card">
+          </Link>
+          <Link
+            className="card card-link"
+            to="/app/stacks-monitored?attention=true&instanceDrift=true"
+          >
             <h3>Drift entre instâncias</h3>
             <div className="value">
               {loading ? '-' : summary?.instanceDriftedStacks ?? 0}
             </div>
-          </div>
-          <div className="card">
+          </Link>
+          <Link
+            className="card card-link"
+            to="/app/stacks-monitored?attention=true&digestDrift=true"
+          >
             <h3>Drift de digest</h3>
             <div className="value">
               {loading ? '-' : summary?.digestDriftedStacks ?? 0}
             </div>
-          </div>
+          </Link>
         </section>
 
         {error && <div className="inline-alert">{error}</div>}

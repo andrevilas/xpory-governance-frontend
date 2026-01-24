@@ -5,6 +5,7 @@ export type InventorySummary = {
   instances: number;
   endpoints: number;
   outdatedStacks: number;
+  attentionStacks: number;
   instanceDriftedStacks: number;
   digestDriftedStacks: number;
   lastAuditAt: string | null;

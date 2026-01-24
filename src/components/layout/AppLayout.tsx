@@ -58,6 +58,13 @@ export function AppLayout({ title, children, headerAction }: AppLayoutProps): JS
           </button>
           <button
             type="button"
+            className={`nav-item${location.pathname.includes('/app/history') ? ' active' : ''}`}
+            onClick={() => handleNavigate('/app/history')}
+          >
+            Histórico
+          </button>
+          <button
+            type="button"
             className={`nav-item${location.pathname.includes('/app/instances') ? ' active' : ''}`}
             onClick={() => handleNavigate('/app/instances')}
           >
@@ -65,10 +72,24 @@ export function AppLayout({ title, children, headerAction }: AppLayoutProps): JS
           </button>
           <button
             type="button"
+            className={`nav-item${location.pathname.includes('/app/stacks-monitored') ? ' active' : ''}`}
+            onClick={() => handleNavigate('/app/stacks-monitored')}
+          >
+            Stacks monitoradas
+          </button>
+          <button
+            type="button"
             className={`nav-item${location.pathname.includes('/app/stacks') ? ' active' : ''}`}
             onClick={() => handleNavigate('/app/stacks')}
           >
             Stacks Globais
+          </button>
+          <button
+            type="button"
+            className={`nav-item${location.pathname.includes('/app/auditing') ? ' active' : ''}`}
+            onClick={() => handleNavigate('/app/auditing')}
+          >
+            Auditorias
           </button>
           <button
             type="button"
