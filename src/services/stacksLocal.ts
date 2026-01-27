@@ -157,8 +157,13 @@ export const createStackLocalVersion = async (
   return data;
 };
 
-export const fetchStackLocalPreview = async (stackId: string, instanceId: string): Promise<StackLocalPreview> => {
-  const { data } = await api.get(`/stacks/local/${stackId}/preview/${instanceId}`);
+export const fetchStackLocalPreview = async (
+  stackId: string,
+  instanceId: string,
+  version?: string,
+): Promise<StackLocalPreview> => {
+  const params = version ? { version } : undefined;
+  const { data } = await api.get(`/stacks/local/${stackId}/preview/${instanceId}`, { params });
   return data;
 };
 

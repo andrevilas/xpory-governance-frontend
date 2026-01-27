@@ -81,7 +81,8 @@ export const fixtures = {
       id: 'local-1',
       name: 'xpory-api',
       description: 'API principal',
-      composeTemplate: 'version: "3"\nservices:\n  api:\n    image: xpory/api:1.0.0\n',
+      composeTemplate:
+        'version: "3"\nservices:\n  api:\n    image: xpory/api:{{VERSION}}\n    environment:\n      - APP_ALLOWED_ORIGINS={{APP_ALLOWED_ORIGINS}}\n      - DB_HOST_APP={{DB_HOST_APP}}\n      - DB_PASSWORD_APP={{DB_PASSWORD_APP}}\n      - INTEGRATION_CLIENT_SECRET={{INTEGRATION_CLIENT_SECRET}}\n      - APP_ENV={{APP_ENV}}\n      - LOG_LEVEL={{LOG_LEVEL}}\n      - VERY_LONG_VARIABLE_NAME_TO_FORCE_LAYOUT_BREAK_AND_TEST_WRAP_RULES={{VERY_LONG_VARIABLE_NAME_TO_FORCE_LAYOUT_BREAK_AND_TEST_WRAP_RULES}}\n',
       currentVersion: '1.0.0',
       createdAt: '2024-01-10T09:00:00Z',
       updatedAt: '2024-01-10T09:30:00Z',
@@ -105,6 +106,42 @@ export const fixtures = {
       updatedAt: '2024-01-10T09:38:00Z',
     },
   ],
+  stackLocalVersions: {
+    'local-1': [
+      {
+        id: 'version-1',
+        stackId: 'local-1',
+        version: '1.0.0',
+        description: 'Versao inicial',
+        composeTemplate:
+          'version: "3"\nservices:\n  api:\n    image: xpory/api:{{VERSION}}\n    environment:\n      - APP_ALLOWED_ORIGINS={{APP_ALLOWED_ORIGINS}}\n      - DB_HOST_APP={{DB_HOST_APP}}\n      - DB_PASSWORD_APP={{DB_PASSWORD_APP}}\n      - INTEGRATION_CLIENT_SECRET={{INTEGRATION_CLIENT_SECRET}}\n      - APP_ENV={{APP_ENV}}\n      - LOG_LEVEL={{LOG_LEVEL}}\n      - VERY_LONG_VARIABLE_NAME_TO_FORCE_LAYOUT_BREAK_AND_TEST_WRAP_RULES={{VERY_LONG_VARIABLE_NAME_TO_FORCE_LAYOUT_BREAK_AND_TEST_WRAP_RULES}}\n',
+        createdAt: '2024-01-10T09:00:00Z',
+        createdBy: null,
+      },
+    ],
+    'local-2': [
+      {
+        id: 'version-2',
+        stackId: 'local-2',
+        version: '2.0.0',
+        description: 'Versao atual',
+        composeTemplate: 'version: "3"\nservices:\n  web:\n    image: xpory/front:2.0.0\n',
+        createdAt: '2024-01-10T09:05:00Z',
+        createdBy: null,
+      },
+    ],
+    'local-3': [
+      {
+        id: 'version-3',
+        stackId: 'local-3',
+        version: '1.0.0',
+        description: 'Versao atual',
+        composeTemplate: 'version: "3"\nservices:\n  worker:\n    image: xpory/worker:1.0.0\n',
+        createdAt: '2024-01-10T09:08:00Z',
+        createdBy: null,
+      },
+    ],
+  },
   stackLocalVariables: {
     'local-1': [
       {

@@ -167,8 +167,11 @@ export function StacksLocalPage(): JSX.Element {
     const list = [...versions]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .map((version) => version.version);
+    if (selectedStack?.currentVersion) {
+      list.push(selectedStack.currentVersion);
+    }
     return Array.from(new Set(list));
-  }, [versions]);
+  }, [versions, selectedStack?.currentVersion]);
 
   const loadStacks = async () => {
     setLoading(true);
@@ -313,12 +316,12 @@ export function StacksLocalPage(): JSX.Element {
 
   useEffect(() => {
     if (!selectedStack) {
-    setVersions([]);
-    setPreviewResults([]);
-    setDeployResults([]);
-    setDeployError(null);
-    return;
-  }
+      setVersions([]);
+      setPreviewResults([]);
+      setDeployResults([]);
+      setDeployError(null);
+      return;
+    }
     void loadVersions(selectedStack.id);
     setDeployTargetVersion(selectedStack.currentVersion ?? '');
     setDeployError(null);
@@ -558,11 +561,17 @@ export function StacksLocalPage(): JSX.Element {
       setDeployError('Selecione instâncias para preview.');
       return;
     }
+    if (!deployTargetVersion.trim()) {
+      setDeployError('Selecione a versão alvo para gerar o preview.');
+      return;
+    }
     setPreviewLoading(true);
     setPreviewResults([]);
     try {
       const results = await Promise.all(
-        deploySelection.map((instanceId) => fetchStackLocalPreview(selectedStack.id, instanceId)),
+        deploySelection.map((instanceId) =>
+          fetchStackLocalPreview(selectedStack.id, instanceId, deployTargetVersion.trim()),
+        ),
       );
       setPreviewResults(results);
     } catch (err) {
@@ -578,6 +587,10 @@ export function StacksLocalPage(): JSX.Element {
       setDeployError('Selecione instâncias para deploy.');
       return;
     }
+    if (!deployTargetVersion.trim()) {
+      setDeployError('Selecione a versão alvo para realizar o deploy.');
+      return;
+    }
     setDeployLoading(true);
     setDeployResults([]);
     try {
@@ -585,7 +598,7 @@ export function StacksLocalPage(): JSX.Element {
         instanceIds: deploySelection,
         dryRun: deployDryRun,
         userId: deployUserId.trim() || undefined,
-        targetVersion: deployTargetVersion.trim() || undefined,
+        targetVersion: deployTargetVersion.trim(),
       });
       setDeployResults(results);
     } catch (err) {
@@ -1003,12 +1016,12 @@ export function StacksLocalPage(): JSX.Element {
                       </div>
                       <div className="deploy-controls">
                         <label>
-                          Target version
+                          Versão alvo
                           <select
                             value={deployTargetVersion}
                             onChange={(event) => setDeployTargetVersion(event.target.value)}
                           >
-                            <option value="">Usar versão atual</option>
+                            <option value="">Selecione uma versão</option>
                             {versionOptions.map((version) => (
                               <option key={version} value={version}>
                                 {version}

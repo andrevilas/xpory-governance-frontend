@@ -91,6 +91,11 @@ export async function setupApiMocks(page: Page) {
       return route.fulfill(jsonResponse(fixtures.stackLocalVariables[stackId] ?? []));
     }
 
+    if (path.match(/^\/api\/stacks\/local\/[^/]+\/versions$/) && method === 'GET') {
+      const stackId = path.split('/')[4] ?? '';
+      return route.fulfill(jsonResponse(fixtures.stackLocalVersions?.[stackId] ?? []));
+    }
+
     if (path.match(/^\/api\/stacks\/local\/[^/]+\/instances\/[^/]+\/variables$/) && method === 'GET') {
       const [, , , , stackId, , instanceId] = path.split('/');
       const values = fixtures.stackInstanceVariables[stackId]?.[instanceId] ?? [];
