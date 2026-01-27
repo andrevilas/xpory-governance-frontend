@@ -262,7 +262,7 @@ export function StacksMonitoredPage(): JSX.Element {
                       <div className="stack-name-cell">
                         <span
                           className={`status-dot ${
-                            stack.isAccessible ? (stack.digestDrifted ? 'warn' : 'ok') : 'down'
+                            stack.isAccessible ? (stack.status === 'ok' ? 'ok' : 'warn') : 'down'
                           }`}
                           aria-hidden="true"
                         />

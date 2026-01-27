@@ -51,14 +51,106 @@ export async function setupApiMocks(page: Page) {
       return route.fulfill(jsonResponse([]));
     }
 
+    if (path === '/api/audit/summary' && method === 'GET') {
+      return route.fulfill(jsonResponse({ failedRuns: 0, failedResults: 0 }));
+    }
+
+    if (path === '/api/audit/results' && method === 'GET') {
+      const stackName = url.searchParams.get('stackName');
+      const instanceName = url.searchParams.get('instanceName');
+      const riskLevel = url.searchParams.get('riskLevel');
+      const filtered = fixtures.audit.resultsAll.filter((item) => {
+        if (stackName && item.stackName !== stackName) {
+          return false;
+        }
+        if (instanceName && item.instanceName !== instanceName) {
+          return false;
+        }
+        if (riskLevel && item.riskLevel !== riskLevel) {
+          return false;
+        }
+        return true;
+      });
+      return route.fulfill(jsonResponse(filtered));
+    }
+
     if (path === '/api/portainer/endpoints' && method === 'GET') {
       return route.fulfill(jsonResponse(fixtures.portainer.endpoints));
+    }
+
+    if (path === '/api/instances' && method === 'GET') {
+      return route.fulfill(jsonResponse(fixtures.instances));
+    }
+
+    if (path === '/api/stacks/local' && method === 'GET') {
+      return route.fulfill(jsonResponse(fixtures.stacksLocal));
+    }
+
+    if (path.match(/^\/api\/stacks\/local\/[^/]+\/variables$/) && method === 'GET') {
+      const stackId = path.split('/')[4] ?? '';
+      return route.fulfill(jsonResponse(fixtures.stackLocalVariables[stackId] ?? []));
+    }
+
+    if (path.match(/^\/api\/stacks\/local\/[^/]+\/instances\/[^/]+\/variables$/) && method === 'GET') {
+      const [, , , , stackId, , instanceId] = path.split('/');
+      const values = fixtures.stackInstanceVariables[stackId]?.[instanceId] ?? [];
+      return route.fulfill(jsonResponse(values));
+    }
+
+    if (path.match(/^\/api\/stacks\/local\/[^/]+\/instances\/[^/]+\/variables\/.+$/) && method === 'PUT') {
+      const [, , , , stackId, , instanceId, , variableName] = path.split('/');
+      const payload = (request.postDataJSON() ?? {}) as { value?: string };
+      return route.fulfill(
+        jsonResponse({
+          stackId,
+          instanceId,
+          variableName,
+          value: payload.value ?? '',
+          createdAt: '2024-01-10T10:10:00Z',
+          updatedAt: '2024-01-10T10:10:00Z',
+        })
+      );
+    }
+
+    if (path.match(/^\/api\/stacks\/local\/[^/]+\/preview\/[^/]+$/) && method === 'GET') {
+      const [, , , , stackId, , instanceId] = path.split('/');
+      return route.fulfill(
+        jsonResponse({
+          stackId,
+          instanceId,
+          resolvedTemplate: '',
+          missingVariables: [],
+          unknownVariables: [],
+          isValid: true,
+        })
+      );
+    }
+
+    if (path.match(/^\/api\/stacks\/local\/[^/]+\/redeploy$/) && method === 'POST') {
+      return route.fulfill(
+        jsonResponse([
+          {
+            instanceId: 'instance-1',
+            portainerStackId: 101,
+            endpointId: 1,
+            status: 'success',
+            message: 'ok',
+            errors: [],
+            rollbackApplied: false,
+          },
+        ])
+      );
     }
 
     if (path.startsWith('/api/audit/stacks/') && method === 'GET') {
       const stackId = path.split('/').pop() ?? '';
       const results = fixtures.audit.resultsByStack[stackId] ?? [];
       return route.fulfill(jsonResponse(results));
+    }
+
+    if (path.match(/^\/api\/registry\/stacks\/[^/]+\/images$/) && method === 'GET') {
+      const stackId = path.split('/')[4] ?? '';
+      return route.fulfill(jsonResponse(fixtures.registry.imagesByStack[stackId] ?? []));
     }
 
     if (path === '/api/notifications/logs' && method === 'GET') {

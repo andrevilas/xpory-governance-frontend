@@ -20,6 +20,10 @@
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
 }
 
+.modal.modal-wide {
+  width: min(96vw, 1600px);
+}
+
 .modal header {
   display: flex;
   justify-content: space-between;
@@ -130,6 +134,109 @@
   color: #475467;
 }
 
+.modal .stack-description.small-text {
+  font-size: 0.6em;
+  line-height: 1.25;
+}
+
+.modal .instance-variables-table-wrapper {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.modal .instance-variables-table {
+  table-layout: fixed;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.modal .instance-variables-table th,
+.modal .instance-variables-table td {
+  font-size: 11px;
+  vertical-align: top;
+  padding: 6px 8px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.modal .instance-variables-table th:nth-child(1),
+.modal .instance-variables-table td:nth-child(1) {
+  width: 24%;
+}
+
+.modal .instance-variables-table th:nth-child(2),
+.modal .instance-variables-table td:nth-child(2) {
+  width: 8%;
+}
+
+.modal .instance-variables-table th:nth-child(3),
+.modal .instance-variables-table td:nth-child(3) {
+  width: 20%;
+}
+
+.modal .instance-variables-table th:nth-child(4),
+.modal .instance-variables-table td:nth-child(4) {
+  width: 26%;
+}
+
+.modal .instance-variables-table th:nth-child(5),
+.modal .instance-variables-table td:nth-child(5) {
+  width: 10%;
+}
+
+.modal .instance-variables-table th:nth-child(6),
+.modal .instance-variables-table td:nth-child(6) {
+  width: 12%;
+}
+
+.modal .instance-variables-table .stack-name {
+  font-size: 11px;
+  word-break: break-all;
+}
+
+.modal .instance-variables-table .stack-description {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.modal .instance-variables-table td {
+  word-break: break-word;
+}
+
+.modal .instance-variables-table .cell-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
+
+.modal .instance-variables-table input {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  font-size: 11px;
+  padding: 6px 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modal .instance-variables-table .actions.inline-actions {
+  gap: 6px;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.modal .instance-variables-table .actions.inline-actions button {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
 @media (max-width: 720px) {
   .modal-overlay {
     padding: 16px;
@@ -138,6 +245,10 @@
 
   .modal {
     padding: 16px;
+    width: min(100%, 94vw);
+  }
+
+  .modal.modal-wide {
     width: min(100%, 94vw);
   }
 

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { AppLayout } from '../../components/layout/AppLayout';
-import { AuditResult, fetchAuditResultsAll, fetchAuditRuns, JobRun } from '../../services/audit';
+import { AuditResult, fetchAuditResultsAll } from '../../services/audit';
 import '../dashboard/dashboard.css';
 
 const formatDateTime = (value?: string | null) => {
@@ -19,7 +19,6 @@ const formatDateTime = (value?: string | null) => {
 export function AuditingPage(): JSX.Element {
   const [searchParams] = useSearchParams();
   const [results, setResults] = useState<AuditResult[]>([]);
-  const [runs, setRuns] = useState<JobRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stackFilter, setStackFilter] = useState('');
@@ -32,18 +31,13 @@ export function AuditingPage(): JSX.Element {
       setLoading(true);
       setError(null);
       try {
-        const [data, runData] = await Promise.all([
-          fetchAuditResultsAll({
-            stackName: stackFilter || undefined,
-            instanceName: instanceFilter || undefined,
-            riskLevel: failedOnly ? 'indisponivel' : undefined,
-            limit: 500,
-          }),
-          fetchAuditRuns(50),
-        ]);
-        const filteredRuns = failedOnly ? runData.filter((run) => run.status === 'failed') : runData;
+        const data = await fetchAuditResultsAll({
+          stackName: stackFilter || undefined,
+          instanceName: instanceFilter || undefined,
+          riskLevel: failedOnly ? 'indisponivel' : undefined,
+          limit: 500,
+        });
         setResults(data);
-        setRuns(filteredRuns);
       } catch (err) {
         void err;
         setError('Não foi possível carregar auditorias.');
@@ -63,57 +57,37 @@ export function AuditingPage(): JSX.Element {
     return results.filter((item) => item.image.toLowerCase().includes(needle));
   }, [results, imageFilter]);
 
-  const runStatusLabel = (status: string) => (status === 'success' ? 'OK' : 'Falhou');
+  const statusBadgeClass = (item: AuditResult) => (item.updateAvailable ? 'warn' : 'ok');
+  const riskBadgeClass = (riskLevel?: string | null) => {
+    const normalized = (riskLevel ?? '').toLowerCase();
+    if (!normalized) {
+      return 'neutral';
+    }
+    if (
+      normalized.includes('indispon') ||
+      normalized.includes('crit') ||
+      normalized.includes('alto') ||
+      normalized.includes('grave')
+    ) {
+      return 'problem';
+    }
+    if (normalized.includes('medio') || normalized.includes('moder') || normalized.includes('alerta')) {
+      return 'warn';
+    }
+    return 'ok';
+  };
 
   return (
     <AppLayout title="Auditorias">
       <div className="dashboard">
         {error && <div className="inline-alert">{error}</div>}
         <section className="section">
-          <h2>Execuções de auditoria</h2>
-          <p className="helper-text">
-            {failedOnly
-              ? 'Exibindo apenas execuções com falha.'
-              : 'Exibindo as execuções mais recentes.'}
-          </p>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Quando</th>
-                <th>Status</th>
-                <th>Stacks</th>
-                <th>Erro</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={4}>Carregando...</td>
-                </tr>
-              ) : runs.length === 0 ? (
-                <tr>
-                  <td colSpan={4}>Nenhuma execução encontrada.</td>
-                </tr>
-              ) : (
-                runs.map((run) => (
-                  <tr key={run.id}>
-                    <td>{formatDateTime(run.createdAt)}</td>
-                    <td>{runStatusLabel(run.status)}</td>
-                    <td>{run.stacksCount}</td>
-                    <td>{run.error ?? '-'}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </section>
-
-        <section className="section">
           <h2>Resultados de auditoria</h2>
           <div className="table-tools stacks-filters">
             <label className="form-field">
               Stack
               <input
+                data-testid="auditing.filter.stack.input"
                 value={stackFilter}
                 onChange={(event) => setStackFilter(event.target.value)}
                 placeholder="Buscar stack"
@@ -122,6 +96,7 @@ export function AuditingPage(): JSX.Element {
             <label className="form-field">
               Instância
               <input
+                data-testid="auditing.filter.instance.input"
                 value={instanceFilter}
                 onChange={(event) => setInstanceFilter(event.target.value)}
                 placeholder="Buscar instância"
@@ -130,6 +105,7 @@ export function AuditingPage(): JSX.Element {
             <label className="form-field">
               Imagem
               <input
+                data-testid="auditing.filter.image.input"
                 value={imageFilter}
                 onChange={(event) => setImageFilter(event.target.value)}
                 placeholder="Buscar imagem"
@@ -137,6 +113,7 @@ export function AuditingPage(): JSX.Element {
             </label>
             <label className="filter-toggle">
               <input
+                data-testid="auditing.filter.failed.toggle"
                 type="checkbox"
                 checked={failedOnly}
                 onChange={(event) => setFailedOnly(event.target.checked)}
@@ -144,7 +121,7 @@ export function AuditingPage(): JSX.Element {
               Com falha
             </label>
           </div>
-          <table className="table">
+          <table className="table" data-testid="auditing.results.table">
             <thead>
               <tr>
                 <th>Quando</th>
@@ -171,14 +148,30 @@ export function AuditingPage(): JSX.Element {
                 filteredResults.map((item) => (
                   <tr key={item.id}>
                     <td>{formatDateTime(item.createdAt)}</td>
-                    <td>{item.stackName ?? item.stackUuid}</td>
+                    <td>
+                      <span className="badge neutral">{item.stackName ?? item.stackUuid}</span>
+                    </td>
                     <td>{item.instanceName ?? 'n/a'}</td>
                     <td>{item.endpointId ?? 'n/a'}</td>
-                    <td>{item.image}</td>
-                    <td>{item.currentTag}</td>
-                    <td>{item.latestTag}</td>
-                    <td>{item.updateAvailable ? 'Atualização' : 'OK'}</td>
-                    <td>{item.riskLevel}</td>
+                    <td>
+                      <span className="badge neutral">{item.image}</span>
+                    </td>
+                    <td>
+                      <span className="badge neutral">{item.currentTag}</span>
+                    </td>
+                    <td>
+                      <span className="badge neutral">{item.latestTag}</span>
+                    </td>
+                    <td>
+                      <span className={`badge ${statusBadgeClass(item)}`}>
+                        {item.updateAvailable ? 'Atualização' : 'OK'}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`badge ${riskBadgeClass(item.riskLevel)}`}>
+                        {item.riskLevel || 'n/a'}
+                      </span>
+                    </td>
                   </tr>
                 ))
               )}

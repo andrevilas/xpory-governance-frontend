@@ -597,13 +597,15 @@ export function DashboardPage(): JSX.Element {
               </tr>
             </thead>
             <tbody>
-              {pagedStacks.map((stack) => (
+              {pagedStacks.map((stack) => {
+                const hasIssues = stack.outdated || stack.instanceDrifted || stack.digestDrifted;
+                return (
                 <tr key={stack.id}>
                   <td>
                     <div className="stack-name-cell">
                       <span
                         className={`status-dot ${
-                          stack.isAccessible ? (stack.digestDrifted ? 'warn' : 'ok') : 'down'
+                          stack.isAccessible ? (hasIssues ? 'warn' : 'ok') : 'down'
                         }`}
                         aria-hidden="true"
                       />
@@ -614,15 +616,15 @@ export function DashboardPage(): JSX.Element {
                     </div>
                   </td>
                   <td>
-                    {stack.status === 'ok' ? (
-                      <span className="badge ok">OK</span>
-                    ) : (
+                    {stack.outdated || stack.instanceDrifted || stack.digestDrifted ? (
                       <div className="status-badges">
                         <span className="badge warn">Atenção</span>
                         {stack.outdated && <span className="badge problem">Stack desatualizada</span>}
                         {stack.instanceDrifted && <span className="badge problem">Drift instâncias</span>}
                         {stack.digestDrifted && <span className="badge problem">Digest</span>}
                       </div>
+                    ) : (
+                      <span className="badge ok">OK</span>
                     )}
                   </td>
                   <td>
@@ -642,7 +644,8 @@ export function DashboardPage(): JSX.Element {
                     </button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
           <div className="table-pagination">

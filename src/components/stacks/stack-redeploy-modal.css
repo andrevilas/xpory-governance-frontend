@@ -4,12 +4,61 @@
   margin-bottom: 16px;
 }
 
+.redeploy-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.redeploy-tabs button {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #1f2937;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.redeploy-tabs button.active {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+.tab-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.redeploy-tab-tools {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.redeploy-tab-tools input {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  background: #f8fafc;
+  width: min(320px, 100%);
+}
+
 .redeploy-stack {
   display: grid;
   gap: 4px;
   padding: 8px 12px;
   background: #f6f6f6;
   border-radius: 8px;
+}
+
+.mono {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  word-break: break-all;
 }
 
 .redeploy-variables-table input {

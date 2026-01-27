@@ -26,6 +26,14 @@ type VariableFormState = {
   isRequired: boolean;
 };
 
+type InstanceVariableRow = {
+  variableName: string;
+  description: string | null;
+  defaultValue: string | null;
+  isRequired: boolean;
+  isDeclared: boolean;
+};
+
 const emptyVariableForm: VariableFormState = {
   variableName: '',
   description: '',
@@ -49,6 +57,7 @@ export function StacksLocalVariablesPage(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [variables, setVariables] = useState<StackLocalVariable[]>([]);
+  const [variablesSearch, setVariablesSearch] = useState('');
   const [variablesLoading, setVariablesLoading] = useState(false);
   const [variablesError, setVariablesError] = useState<string | null>(null);
   const [variableForm, setVariableForm] = useState<VariableFormState>(emptyVariableForm);
@@ -59,6 +68,10 @@ export function StacksLocalVariablesPage(): JSX.Element {
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
   const [instanceVariables, setInstanceVariables] = useState<StackInstanceVariable[]>([]);
   const [instanceVarDrafts, setInstanceVarDrafts] = useState<Record<string, string>>({});
+  const [instanceSearch, setInstanceSearch] = useState('');
+  const [instanceModalOpen, setInstanceModalOpen] = useState(false);
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const sortedStacks = useMemo(
     () => [...stacks].sort((a, b) => a.name.localeCompare(b.name)),
@@ -85,6 +98,56 @@ export function StacksLocalVariablesPage(): JSX.Element {
     });
     return Array.from(versionsSet).sort();
   }, [stacks]);
+
+  const filteredVariables = useMemo(() => {
+    if (!variablesSearch.trim()) {
+      return variables;
+    }
+    const needle = variablesSearch.toLowerCase();
+    return variables.filter(
+      (variable) =>
+        variable.variableName.toLowerCase().includes(needle) ||
+        (variable.description ?? '').toLowerCase().includes(needle),
+    );
+  }, [variables, variablesSearch]);
+
+  const instanceRows = useMemo<InstanceVariableRow[]>(() => {
+    const declared = new Map<string, InstanceVariableRow>();
+    variables.forEach((variable) => {
+      declared.set(variable.variableName, {
+        variableName: variable.variableName,
+        description: variable.description ?? null,
+        defaultValue: variable.defaultValue ?? null,
+        isRequired: variable.isRequired,
+        isDeclared: true,
+      });
+    });
+    instanceVariables.forEach((entry) => {
+      if (declared.has(entry.variableName)) {
+        return;
+      }
+      declared.set(entry.variableName, {
+        variableName: entry.variableName,
+        description: null,
+        defaultValue: null,
+        isRequired: false,
+        isDeclared: false,
+      });
+    });
+    return Array.from(declared.values()).sort((a, b) => a.variableName.localeCompare(b.variableName));
+  }, [variables, instanceVariables]);
+
+  const filteredInstanceVariables = useMemo(() => {
+    if (!instanceSearch.trim()) {
+      return instanceRows;
+    }
+    const needle = instanceSearch.toLowerCase();
+    return instanceRows.filter(
+      (variable) =>
+        variable.variableName.toLowerCase().includes(needle) ||
+        (variable.description ?? '').toLowerCase().includes(needle),
+    );
+  }, [instanceRows, instanceSearch]);
 
   const selectedStack = useMemo(
     () => stacks.find((stack) => stack.id === selectedId) ?? null,
@@ -231,6 +294,7 @@ export function StacksLocalVariablesPage(): JSX.Element {
         });
       }
       await loadVariables(selectedStack.id);
+      setToastMessage('Variável salva com sucesso.');
       closeModal();
     } catch (err) {
       const message =
@@ -263,7 +327,7 @@ export function StacksLocalVariablesPage(): JSX.Element {
     }
   };
 
-  const handleSaveInstanceVariable = async (variable: StackLocalVariable) => {
+  const handleSaveInstanceVariable = async (variable: InstanceVariableRow) => {
     if (!selectedStack || !selectedInstanceId) {
       return;
     }
@@ -281,6 +345,7 @@ export function StacksLocalVariablesPage(): JSX.Element {
         return [...updated, result];
       });
       setInstanceVarDrafts((prev) => ({ ...prev, [variable.variableName]: result.value }));
+      setToastMessage('Variável da instância salva com sucesso.');
     } catch (err) {
       const message =
         typeof (err as { response?: { data?: { message?: string } } })?.response?.data?.message === 'string'
@@ -292,7 +357,7 @@ export function StacksLocalVariablesPage(): JSX.Element {
     }
   };
 
-  const handleClearInstanceVariable = async (variable: StackLocalVariable) => {
+  const handleClearInstanceVariable = async (variable: InstanceVariableRow) => {
     if (!selectedStack || !selectedInstanceId) {
       return;
     }
@@ -310,6 +375,61 @@ export function StacksLocalVariablesPage(): JSX.Element {
       setVariablesError(message ?? 'Falha ao limpar variável por instância.');
     } finally {
       setVariablesLoading(false);
+    }
+  };
+
+  const handleSaveAllInstanceVariables = async () => {
+    if (!selectedStack || !selectedInstanceId) {
+      return;
+    }
+    const missingRequired = variables.filter(
+      (variable) =>
+        variable.isRequired &&
+        !instanceVarDrafts[variable.variableName]?.trim() &&
+        !variable.defaultValue?.trim(),
+    );
+    if (missingRequired.length > 0) {
+      setVariablesError(
+        `Preencha as variáveis obrigatórias: ${missingRequired.map((variable) => variable.variableName).join(', ')}`,
+      );
+      return;
+    }
+
+    setBulkSaving(true);
+    setVariablesError(null);
+    try {
+      const updates = variables
+        .map((variable) => ({
+          variableName: variable.variableName,
+          value: instanceVarDrafts[variable.variableName]?.trim() ?? '',
+        }))
+        .filter((entry) => entry.value.length > 0);
+      await Promise.all(
+        updates.map((entry) =>
+          upsertInstanceVariable(selectedStack.id, selectedInstanceId, entry.variableName, entry.value)
+        )
+      );
+      await loadInstanceVariables(selectedStack.id, selectedInstanceId);
+      setToastMessage('Variáveis da instância salvas com sucesso.');
+    } catch (err) {
+      const message =
+        typeof (err as { response?: { data?: { message?: string } } })?.response?.data?.message === 'string'
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : null;
+      setVariablesError(message ?? 'Falha ao salvar variáveis da instância.');
+    } finally {
+      setBulkSaving(false);
+    }
+  };
+
+  const handleSelectInstance = (instanceId: string) => {
+    if (!selectedStack) {
+      setVariablesError('Selecione uma stack antes de escolher a instância.');
+      return;
+    }
+    setSelectedInstanceId(instanceId || null);
+    if (instanceId) {
+      setInstanceModalOpen(true);
     }
   };
 
@@ -380,27 +500,55 @@ export function StacksLocalVariablesPage(): JSX.Element {
         </section>
 
         <section className="card">
-          <h2>Variáveis declaradas</h2>
+          <div className="card-header">
+            <h2>Variáveis declaradas</h2>
+            <div className="table-tools">
+              <input
+                data-testid="stacks.variables.search.input"
+                value={variablesSearch}
+                onChange={(event) => setVariablesSearch(event.target.value)}
+                placeholder="Buscar por nome ou descrição"
+              />
+              <select
+                data-testid="stacks.variables.instance.select"
+                value={selectedInstanceId ?? ''}
+                onChange={(event) => handleSelectInstance(event.target.value)}
+                onClick={() => {
+                  if (selectedInstanceId) {
+                    setInstanceModalOpen(true);
+                  }
+                }}
+                disabled={!selectedStack || instances.length === 0}
+              >
+                <option value="">Ver variáveis por instância</option>
+                {instances.map((instance) => (
+                  <option key={instance.id} value={instance.id}>
+                    {instance.name} ({instance.environment})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
           {variablesError && <div className="inline-alert">{variablesError}</div>}
           {!selectedStack ? (
             <div className="empty-state">Selecione uma stack para gerenciar variáveis do template.</div>
           ) : variablesLoading ? (
             <div className="empty-state">Carregando...</div>
-          ) : variables.length === 0 ? (
+          ) : filteredVariables.length === 0 ? (
             <div className="empty-state">Nenhuma variável cadastrada.</div>
           ) : (
-            <table>
+            <table data-testid="stacks.variables.table">
               <thead>
                 <tr>
                   <th>Variável</th>
                   <th>Obrigatoria</th>
                   <th>Default</th>
                   <th>Atualizado em</th>
-                  <th>Acoes</th>
+                  <th>Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {variables.map((variable) => (
+                {filteredVariables.map((variable) => (
                   <tr key={variable.id}>
                     <td>
                       <div className="stack-name">{variable.variableName}</div>
@@ -415,6 +563,7 @@ export function StacksLocalVariablesPage(): JSX.Element {
                           type="button"
                           onClick={() => openEditModal(variable)}
                           disabled={variablesLoading}
+                          className="secondary"
                         >
                           Editar
                         </button>
@@ -434,39 +583,39 @@ export function StacksLocalVariablesPage(): JSX.Element {
             </table>
           )}
         </section>
+      </div>
 
-        <section className="card">
-          <div className="card-header">
-            <h2>Variáveis por instância</h2>
-            <div className="table-tools">
-              <select
-                value={selectedInstanceId ?? ''}
-                onChange={(event) => setSelectedInstanceId(event.target.value || null)}
-                disabled={instances.length === 0}
-              >
-                <option value="">Selecione uma instância</option>
-                {instances.map((instance) => (
-                  <option key={instance.id} value={instance.id}>
-                    {instance.name} ({instance.environment})
-                  </option>
-                ))}
-              </select>
-            </div>
+      <Modal
+        isOpen={instanceModalOpen}
+        title="Variáveis por instância"
+        onClose={() => setInstanceModalOpen(false)}
+        className="modal-wide"
+      >
+        <div className="card-header">
+          <div className="table-tools">
+            <input
+              data-testid="stacks.variables.instance.search.input"
+              value={instanceSearch}
+              onChange={(event) => setInstanceSearch(event.target.value)}
+              placeholder="Buscar por nome ou descrição"
+            />
           </div>
-          {instancesError && <div className="inline-alert">{instancesError}</div>}
-          {variablesError && <div className="inline-alert">{variablesError}</div>}
-          {!selectedStack ? (
-            <div className="empty-state">Selecione uma stack para editar variáveis da instância.</div>
-          ) : instances.length === 0 ? (
-            <div className="empty-state">Nenhuma instância cadastrada.</div>
-          ) : !selectedInstanceId ? (
-            <div className="empty-state">Escolha uma instância para visualizar variáveis.</div>
-          ) : variablesLoading ? (
-            <div className="empty-state">Carregando...</div>
-          ) : variables.length === 0 ? (
-            <div className="empty-state">Cadastre variáveis para editar sobrescritas.</div>
-          ) : (
-            <table>
+        </div>
+        {instancesError && <div className="inline-alert">{instancesError}</div>}
+        {variablesError && <div className="inline-alert">{variablesError}</div>}
+        {!selectedStack ? (
+          <div className="empty-state">Selecione uma stack para editar variáveis da instância.</div>
+        ) : instances.length === 0 ? (
+          <div className="empty-state">Nenhuma instância cadastrada.</div>
+        ) : !selectedInstanceId ? (
+          <div className="empty-state">Escolha uma instância para visualizar variáveis.</div>
+        ) : variablesLoading ? (
+          <div className="empty-state">Carregando...</div>
+        ) : filteredInstanceVariables.length === 0 ? (
+          <div className="empty-state">Cadastre variáveis para editar sobrescritas.</div>
+        ) : (
+          <div className="instance-variables-table-wrapper">
+            <table className="table instance-variables-table" data-testid="stacks.variables.instance.table">
               <thead>
                 <tr>
                   <th>Variável</th>
@@ -474,28 +623,38 @@ export function StacksLocalVariablesPage(): JSX.Element {
                   <th>Default</th>
                   <th>Valor na instância</th>
                   <th>Status</th>
-                  <th>Acoes</th>
+                  <th>Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {variables.map((variable) => {
+                {filteredInstanceVariables.map((variable) => {
                   const instanceValue = instanceVarDrafts[variable.variableName] ?? '';
                   const instanceEntry = instanceVariableMap.get(variable.variableName);
-                  const status = instanceEntry
-                    ? 'Override'
-                    : variable.defaultValue
-                      ? 'Default'
-                      : variable.isRequired
-                        ? 'Pendente'
-                        : 'Opcional';
+                  const statusLabel = !variable.isDeclared
+                    ? 'Orfã'
+                    : instanceEntry
+                      ? 'Override'
+                      : variable.defaultValue
+                        ? 'Default'
+                        : variable.isRequired
+                          ? 'Pendente'
+                          : 'Opcional';
+                  const statusClass = !variable.isDeclared ? 'pill-warning' : `pill-${statusLabel.toLowerCase()}`;
                   return (
                     <tr key={variable.variableName}>
                       <td>
                         <div className="stack-name">{variable.variableName}</div>
-                        <div className="stack-description">{variable.description ?? 'Sem descrição'}</div>
+                        <div className="stack-description small-text">
+                          {variable.description ?? 'Sem descrição'}
+                          {!variable.isDeclared && ' (não declarada)'}
+                        </div>
                       </td>
                       <td>{variable.isRequired ? 'Sim' : 'Não'}</td>
-                      <td>{variable.defaultValue ?? 'n/a'}</td>
+                      <td>
+                        <span className="cell-text" title={variable.defaultValue ?? 'n/a'}>
+                          {variable.defaultValue ?? 'n/a'}
+                        </span>
+                      </td>
                       <td>
                         <input
                           value={instanceValue}
@@ -505,21 +664,25 @@ export function StacksLocalVariablesPage(): JSX.Element {
                               [variable.variableName]: event.target.value,
                             }))
                           }
+                          title={instanceValue || variable.defaultValue || ''}
                           placeholder={variable.defaultValue ?? ''}
                         />
                         {instanceEntry && (
-                          <div className="stack-description">Atualizado em {formatDate(instanceEntry.updatedAt)}</div>
+                          <div className="stack-description small-text">
+                            Atualizado em {formatDate(instanceEntry.updatedAt)}
+                          </div>
                         )}
                       </td>
                       <td>
-                        <span className={`pill pill-${status.toLowerCase()}`}>{status}</span>
+                        <span className={`pill ${statusClass}`}>{statusLabel}</span>
                       </td>
                       <td>
-                        <div className="actions">
+                        <div className="actions inline-actions">
                           <button
                             type="button"
                             onClick={() => handleSaveInstanceVariable(variable)}
-                            disabled={variablesLoading}
+                            disabled={variablesLoading || bulkSaving}
+                            className="primary"
                           >
                             Salvar
                           </button>
@@ -527,7 +690,7 @@ export function StacksLocalVariablesPage(): JSX.Element {
                             type="button"
                             className="secondary"
                             onClick={() => handleClearInstanceVariable(variable)}
-                            disabled={variablesLoading}
+                            disabled={variablesLoading || bulkSaving}
                           >
                             Limpar
                           </button>
@@ -538,9 +701,17 @@ export function StacksLocalVariablesPage(): JSX.Element {
                 })}
               </tbody>
             </table>
-          )}
-        </section>
-      </div>
+          </div>
+        )}
+        <div className="modal-actions">
+          <button type="button" onClick={handleSaveAllInstanceVariables} disabled={variablesLoading || bulkSaving}>
+            {bulkSaving ? 'Salvando...' : 'Salvar tudo'}
+          </button>
+          <button type="button" className="secondary" onClick={() => setInstanceModalOpen(false)}>
+            Fechar
+          </button>
+        </div>
+      </Modal>
 
       <Modal
         isOpen={isModalOpen}
@@ -592,6 +763,11 @@ export function StacksLocalVariablesPage(): JSX.Element {
           </button>
         </div>
       </Modal>
+      {toastMessage && (
+        <div className="toast" role="status" onAnimationEnd={() => setToastMessage(null)}>
+          {toastMessage}
+        </div>
+      )}
     </AppLayout>
   );
 }
