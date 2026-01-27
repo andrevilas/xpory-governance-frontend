@@ -139,6 +139,11 @@ export const deleteStackLocalVariable = async (stackId: string, variableId: stri
   await api.delete(`/stacks/local/${stackId}/variables/${variableId}`);
 };
 
+export const deleteStackLocalVariablesBulk = async (stackId: string, ids: string[]): Promise<number> => {
+  const { data } = await api.delete(`/stacks/local/${stackId}/variables`, { data: { ids } });
+  return data?.deleted ?? 0;
+};
+
 export const fetchStackLocalVersions = async (stackId: string): Promise<StackLocalVersion[]> => {
   const { data } = await api.get(`/stacks/local/${stackId}/versions`);
   return data;

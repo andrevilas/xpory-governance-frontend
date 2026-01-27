@@ -142,6 +142,16 @@
   font-size: 14px;
 }
 
+.stacks-local-page .selection-cell {
+  width: 40px;
+  text-align: center;
+}
+
+.stacks-local-page .selection-cell input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+}
+
 .stacks-local-page .actions {
   display: flex;
   gap: 8px;
@@ -230,6 +240,26 @@
   display: flex;
   gap: 12px;
   margin: 12px 0;
+}
+
+.stacks-local-page .table-tools button {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: none;
+  background: #0f172a;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.stacks-local-page .table-tools button.danger {
+  background: #b91c1c;
+}
+
+.stacks-local-page .table-tools button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .stacks-local-page tr.selected {

@@ -6,6 +6,7 @@ import { PageTabs } from '../../components/ui/PageTabs';
 import { fetchInstances, PortainerInstance } from '../../services/instances';
 import {
   createStackLocalVariable,
+  deleteStackLocalVariablesBulk,
   deleteInstanceVariable,
   deleteStackLocalVariable,
   fetchStackInstanceVariables,
@@ -86,6 +87,7 @@ export function StacksLocalVariablesPage(): JSX.Element {
   const [versions, setVersions] = useState<StackLocalVersion[]>([]);
   const [versionsError, setVersionsError] = useState<string | null>(null);
   const [selectedVersion, setSelectedVersion] = useState('');
+  const [selectedVariableIds, setSelectedVariableIds] = useState<string[]>([]);
 
   const sortedStacks = useMemo(
     () => [...stacks].sort((a, b) => a.name.localeCompare(b.name)),
@@ -125,6 +127,11 @@ export function StacksLocalVariablesPage(): JSX.Element {
     );
   }, [variables, variablesSearch]);
 
+  const selectedStack = useMemo(
+    () => stacks.find((stack) => stack.id === selectedId) ?? null,
+    [stacks, selectedId],
+  );
+
   const selectedVersionRecord = useMemo(() => {
     if (!selectedVersion) {
       return null;
@@ -142,12 +149,24 @@ export function StacksLocalVariablesPage(): JSX.Element {
   const templateVariables = useMemo(() => extractTemplateVariables(activeTemplate), [activeTemplate]);
   const templateVariableSet = useMemo(() => new Set(templateVariables), [templateVariables]);
 
-  const versionFilteredVariables = useMemo(() => {
+  const versionCompatibleVariables = useMemo(() => {
     if (templateVariableSet.size === 0) {
       return [];
     }
-    return filteredVariables.filter((variable) => templateVariableSet.has(variable.variableName));
-  }, [filteredVariables, templateVariableSet]);
+    return variables.filter((variable) => templateVariableSet.has(variable.variableName));
+  }, [variables, templateVariableSet]);
+
+  const versionFilteredVariables = useMemo(() => {
+    if (!variablesSearch.trim()) {
+      return versionCompatibleVariables;
+    }
+    const needle = variablesSearch.toLowerCase();
+    return versionCompatibleVariables.filter(
+      (variable) =>
+        variable.variableName.toLowerCase().includes(needle) ||
+        (variable.description ?? '').toLowerCase().includes(needle),
+    );
+  }, [variablesSearch, versionCompatibleVariables]);
 
   const versionFilteredInstanceVariables = useMemo(() => {
     if (templateVariableSet.size === 0) {
@@ -156,9 +175,18 @@ export function StacksLocalVariablesPage(): JSX.Element {
     return instanceVariables.filter((entry) => templateVariableSet.has(entry.variableName));
   }, [instanceVariables, templateVariableSet]);
 
+  const allSelected = useMemo(() => {
+    if (versionFilteredVariables.length === 0) {
+      return false;
+    }
+    return versionFilteredVariables.every((variable) => selectedVariableIds.includes(variable.id));
+  }, [versionFilteredVariables, selectedVariableIds]);
+
+  const selectedCount = selectedVariableIds.length;
+
   const instanceRows = useMemo<InstanceVariableRow[]>(() => {
     const declared = new Map<string, InstanceVariableRow>();
-    versionFilteredVariables.forEach((variable) => {
+    versionCompatibleVariables.forEach((variable) => {
       declared.set(variable.variableName, {
         variableName: variable.variableName,
         description: variable.description ?? null,
@@ -180,7 +208,7 @@ export function StacksLocalVariablesPage(): JSX.Element {
       });
     });
     return Array.from(declared.values()).sort((a, b) => a.variableName.localeCompare(b.variableName));
-  }, [versionFilteredVariables, versionFilteredInstanceVariables]);
+  }, [versionCompatibleVariables, versionFilteredInstanceVariables]);
 
   const filteredInstanceVariables = useMemo(() => {
     if (!instanceSearch.trim()) {
@@ -193,11 +221,6 @@ export function StacksLocalVariablesPage(): JSX.Element {
         (variable.description ?? '').toLowerCase().includes(needle),
     );
   }, [instanceRows, instanceSearch]);
-
-  const selectedStack = useMemo(
-    () => stacks.find((stack) => stack.id === selectedId) ?? null,
-    [stacks, selectedId],
-  );
 
   const instanceVariableMap = useMemo(() => {
     const map = new Map<string, StackInstanceVariable>();
@@ -246,7 +269,12 @@ export function StacksLocalVariablesPage(): JSX.Element {
     }
   };
 
-  const loadVersions = async (stackId: string, currentVersion?: string | null) => {
+  const loadVersions = async (
+    stackId: string,
+    currentVersion?: string | null,
+    fallbackTemplate?: string,
+    fallbackUpdatedAt?: string,
+  ) => {
     setVersionsError(null);
     try {
       const result = await fetchStackLocalVersions(stackId);
@@ -257,8 +285,8 @@ export function StacksLocalVariablesPage(): JSX.Element {
           stackId,
           version: currentVersion,
           description: 'Versão atual',
-          composeTemplate: selectedStack?.composeTemplate ?? '',
-          createdAt: selectedStack?.updatedAt ?? new Date().toISOString(),
+          composeTemplate: fallbackTemplate ?? '',
+          createdAt: fallbackUpdatedAt ?? new Date().toISOString(),
           createdBy: null,
         });
       }
@@ -301,11 +329,23 @@ export function StacksLocalVariablesPage(): JSX.Element {
       setInstanceVarDrafts({});
       setVersions([]);
       setSelectedVersion('');
+      setSelectedVariableIds([]);
       return;
     }
     void loadVariables(selectedStack.id);
-    void loadVersions(selectedStack.id, selectedStack.currentVersion ?? null);
+    void loadVersions(
+      selectedStack.id,
+      selectedStack.currentVersion ?? null,
+      selectedStack.composeTemplate,
+      selectedStack.updatedAt,
+    );
   }, [selectedStack?.id]);
+
+  useEffect(() => {
+    setSelectedVariableIds((prev) =>
+      prev.filter((id) => versionFilteredVariables.some((variable) => variable.id === id)),
+    );
+  }, [versionFilteredVariables]);
 
   useEffect(() => {
     if (!selectedStack || !selectedInstanceId) {
@@ -402,6 +442,43 @@ export function StacksLocalVariablesPage(): JSX.Element {
     }
   };
 
+  const toggleVariableSelection = (id: string) => {
+    setSelectedVariableIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+  };
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedVariableIds([]);
+      return;
+    }
+    setSelectedVariableIds(versionFilteredVariables.map((variable) => variable.id));
+  };
+
+  const handleDeleteSelectedVariables = async () => {
+    if (!selectedStack || selectedVariableIds.length === 0) {
+      return;
+    }
+    if (!window.confirm(`Remover ${selectedVariableIds.length} variáveis selecionadas?`)) {
+      return;
+    }
+    setVariablesLoading(true);
+    setVariablesError(null);
+    try {
+      await deleteStackLocalVariablesBulk(selectedStack.id, selectedVariableIds);
+      setSelectedVariableIds([]);
+      await loadVariables(selectedStack.id);
+      setToastMessage('Variáveis removidas com sucesso.');
+    } catch (err) {
+      const message =
+        typeof (err as { response?: { data?: { message?: string } } })?.response?.data?.message === 'string'
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : null;
+      setVariablesError(message ?? 'Falha ao remover variáveis.');
+    } finally {
+      setVariablesLoading(false);
+    }
+  };
+
   const handleSaveInstanceVariable = async (variable: InstanceVariableRow) => {
     if (!selectedStack || !selectedInstanceId) {
       return;
@@ -457,7 +534,7 @@ export function StacksLocalVariablesPage(): JSX.Element {
     if (!selectedStack || !selectedInstanceId) {
       return;
     }
-    const missingRequired = versionFilteredVariables.filter(
+    const missingRequired = versionCompatibleVariables.filter(
       (variable) =>
         variable.isRequired &&
         !instanceVarDrafts[variable.variableName]?.trim() &&
@@ -473,7 +550,7 @@ export function StacksLocalVariablesPage(): JSX.Element {
     setBulkSaving(true);
     setVariablesError(null);
     try {
-      const updates = versionFilteredVariables
+      const updates = versionCompatibleVariables
         .map((variable) => ({
           variableName: variable.variableName,
           value: instanceVarDrafts[variable.variableName]?.trim() ?? '',
@@ -603,6 +680,14 @@ export function StacksLocalVariablesPage(): JSX.Element {
                   ))
                 )}
               </select>
+              <button
+                type="button"
+                className="danger"
+                disabled={selectedCount === 0 || variablesLoading}
+                onClick={handleDeleteSelectedVariables}
+              >
+                Remover selecionadas {selectedCount > 0 ? `(${selectedCount})` : ''}
+              </button>
               <select
                 data-testid="stacks.variables.instance.select"
                 value={selectedInstanceId ?? ''}
@@ -635,6 +720,14 @@ export function StacksLocalVariablesPage(): JSX.Element {
             <table data-testid="stacks.variables.table">
               <thead>
                 <tr>
+                  <th className="selection-cell">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleSelectAll}
+                      aria-label="Selecionar todas"
+                    />
+                  </th>
                   <th>Variável</th>
                   <th>Obrigatoria</th>
                   <th>Default</th>
@@ -645,6 +738,14 @@ export function StacksLocalVariablesPage(): JSX.Element {
               <tbody>
                 {versionFilteredVariables.map((variable) => (
                   <tr key={variable.id}>
+                    <td className="selection-cell">
+                      <input
+                        type="checkbox"
+                        checked={selectedVariableIds.includes(variable.id)}
+                        onChange={() => toggleVariableSelection(variable.id)}
+                        aria-label={`Selecionar ${variable.variableName}`}
+                      />
+                    </td>
                     <td>
                       <div className="stack-name">{variable.variableName}</div>
                       <div className="stack-description">{variable.description ?? 'Sem descrição'}</div>

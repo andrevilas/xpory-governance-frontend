@@ -16,6 +16,7 @@ function jsonResponse(data: unknown, status = 200) {
 }
 
 export async function setupApiMocks(page: Page) {
+  const stackLocalVariablesState = structuredClone(fixtures.stackLocalVariables);
   await page.route('**/api/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -88,12 +89,28 @@ export async function setupApiMocks(page: Page) {
 
     if (path.match(/^\/api\/stacks\/local\/[^/]+\/variables$/) && method === 'GET') {
       const stackId = path.split('/')[4] ?? '';
-      return route.fulfill(jsonResponse(fixtures.stackLocalVariables[stackId] ?? []));
+      return route.fulfill(jsonResponse(stackLocalVariablesState[stackId] ?? []));
     }
 
     if (path.match(/^\/api\/stacks\/local\/[^/]+\/versions$/) && method === 'GET') {
       const stackId = path.split('/')[4] ?? '';
       return route.fulfill(jsonResponse(fixtures.stackLocalVersions?.[stackId] ?? []));
+    }
+
+    if (path.match(/^\/api\/stacks\/local\/[^/]+\/variables\/[^/]+$/) && method === 'DELETE') {
+      const [, , , , stackId, , variableId] = path.split('/');
+      const current = stackLocalVariablesState[stackId] ?? [];
+      stackLocalVariablesState[stackId] = current.filter((variable) => variable.id !== variableId);
+      return route.fulfill(jsonResponse({ status: 'ok' }));
+    }
+
+    if (path.match(/^\/api\/stacks\/local\/[^/]+\/variables$/) && method === 'DELETE') {
+      const stackId = path.split('/')[4] ?? '';
+      const payload = (request.postDataJSON() ?? {}) as { ids?: string[] };
+      const ids = payload.ids ?? [];
+      const current = stackLocalVariablesState[stackId] ?? [];
+      stackLocalVariablesState[stackId] = current.filter((variable) => !ids.includes(variable.id));
+      return route.fulfill(jsonResponse({ status: 'ok', deleted: ids.length }));
     }
 
     if (path.match(/^\/api\/stacks\/local\/[^/]+\/instances\/[^/]+\/variables$/) && method === 'GET') {
