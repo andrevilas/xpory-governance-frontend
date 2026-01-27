@@ -750,7 +750,11 @@ export function StacksLocalVariablesPage(): JSX.Element {
                       <div className="stack-name">{variable.variableName}</div>
                       <div className="stack-description">{variable.description ?? 'Sem descrição'}</div>
                     </td>
-                    <td>{variable.isRequired ? 'Sim' : 'Não'}</td>
+                    <td>
+                      <span className={`badge ${variable.isRequired ? 'badge-info' : 'badge-neutral'}`}>
+                        {variable.isRequired ? 'Sim' : 'Não'}
+                      </span>
+                    </td>
                     <td>{variable.defaultValue ?? 'n/a'}</td>
                     <td>{formatDate(variable.updatedAt)}</td>
                     <td>
@@ -837,7 +841,17 @@ export function StacksLocalVariablesPage(): JSX.Element {
                         : variable.isRequired
                           ? 'Pendente'
                           : 'Opcional';
-                  const statusClass = !variable.isDeclared ? 'pill-warning' : `pill-${statusLabel.toLowerCase()}`;
+                  const statusClass = !variable.isDeclared
+                    ? 'badge-danger'
+                    : statusLabel === 'Override'
+                      ? 'badge-info'
+                      : statusLabel === 'Default'
+                        ? 'badge-neutral'
+                        : statusLabel === 'Pendente'
+                          ? 'badge-danger'
+                          : 'badge-warning';
+                  const requiredLabel = variable.isRequired ? 'Sim' : 'Não';
+                  const requiredClass = variable.isRequired ? 'badge-info' : 'badge-neutral';
                   return (
                     <tr key={variable.variableName}>
                       <td>
@@ -847,7 +861,9 @@ export function StacksLocalVariablesPage(): JSX.Element {
                           {!variable.isDeclared && ' (não declarada)'}
                         </div>
                       </td>
-                      <td>{variable.isRequired ? 'Sim' : 'Não'}</td>
+                      <td>
+                        <span className={`badge ${requiredClass}`}>{requiredLabel}</span>
+                      </td>
                       <td>
                         <span className="cell-text" title={variable.defaultValue ?? 'n/a'}>
                           {variable.defaultValue ?? 'n/a'}
@@ -872,7 +888,7 @@ export function StacksLocalVariablesPage(): JSX.Element {
                         )}
                       </td>
                       <td>
-                        <span className={`pill ${statusClass}`}>{statusLabel}</span>
+                        <span className={`badge ${statusClass}`}>{statusLabel}</span>
                       </td>
                       <td>
                         <div className="actions inline-actions">
