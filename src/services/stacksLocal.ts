@@ -49,6 +49,33 @@ export type StackInstanceVariable = {
   updatedAt: string;
 };
 
+export type StackDeployHistory = {
+  id: string;
+  stackId: string;
+  instanceId: string;
+  version: string;
+  result: string;
+  timestamp: string;
+  userId?: string | null;
+  message?: string | null;
+  refreshLog?: Array<{
+    image: string;
+    tag: string;
+    removed: boolean;
+    pulled: boolean;
+    errors: string[];
+  }> | null;
+  digestLog?: Array<{
+    image: string;
+    tag: string;
+    localDigest: string | null;
+    registryDigest: string | null;
+    match: boolean;
+    status: 'match' | 'mismatch' | 'missing_local' | 'missing_registry' | 'pinned' | 'skipped';
+    errors: string[];
+  }> | null;
+};
+
 export type DeployStackLocalRequest = {
   instanceIds: string[];
   dryRun?: boolean;
@@ -69,6 +96,22 @@ export type DeployStackLocalResult = {
   message: string;
   errors: string[];
   rollbackApplied: boolean;
+  refreshLog?: Array<{
+    image: string;
+    tag: string;
+    removed: boolean;
+    pulled: boolean;
+    errors: string[];
+  }>;
+  digestLog?: Array<{
+    image: string;
+    tag: string;
+    localDigest: string | null;
+    registryDigest: string | null;
+    match: boolean;
+    status: 'match' | 'mismatch' | 'missing_local' | 'missing_registry' | 'pinned' | 'skipped';
+    errors: string[];
+  }>;
 };
 
 export const fetchStacksLocal = async (): Promise<StackLocal[]> => {
@@ -177,6 +220,16 @@ export const fetchStackInstanceVariables = async (
   instanceId: string,
 ): Promise<StackInstanceVariable[]> => {
   const { data } = await api.get(`/stacks/local/${stackId}/instances/${instanceId}/variables`);
+  return data;
+};
+
+export const fetchStackDeployHistory = async (
+  stackId: string,
+  instanceId: string,
+  limit?: number,
+): Promise<StackDeployHistory[]> => {
+  const params = limit ? { instanceId, limit } : { instanceId };
+  const { data } = await api.get(`/stacks/local/${stackId}/history`, { params });
   return data;
 };
 

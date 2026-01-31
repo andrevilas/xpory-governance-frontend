@@ -465,6 +465,31 @@
   font-size: 13px;
 }
 
+.stack-redeploy button.secondary {
+  background: #f1f5f9;
+  color: #0f172a;
+  border: 1px solid #cbd5f5;
+}
+
+.redeploy-logs {
+  display: grid;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.redeploy-logs h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.redeploy-summary {
+  display: grid;
+  gap: 4px;
+  padding: 8px 12px;
+  background: #f6f6f6;
+  border-radius: 8px;
+}
+
 .stack-summary-title {
   font-size: 14px;
   color: #475467;

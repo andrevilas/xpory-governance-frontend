@@ -3,6 +3,9 @@ import { useSearchParams } from 'react-router-dom';
 
 import { AppLayout } from '../../components/layout/AppLayout';
 import { StackRedeployModal } from '../../components/stacks/StackRedeployModal';
+import { Modal } from '../../components/ui/Modal';
+import { useActionNotifications } from '../../context/actions/useActionNotifications';
+import { createRemoveAction } from '../../services/actions';
 import { fetchInventoryStacks, InventoryStack } from '../../services/inventory';
 import { fetchStacksLocal, StackLocal } from '../../services/stacksLocal';
 import '../dashboard/dashboard.css';
@@ -45,6 +48,11 @@ export function StacksMonitoredPage(): JSX.Element {
   const [globalOnly, setGlobalOnly] = useState(searchParams.get('globalOnly') !== 'false');
   const [redeployTarget, setRedeployTarget] = useState<InventoryStack | null>(null);
   const [redeployOpen, setRedeployOpen] = useState(false);
+  const [selected, setSelected] = useState<StackRow | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<StackRow | null>(null);
+  const [removeConfirm, setRemoveConfirm] = useState('');
+  const [removeLoading, setRemoveLoading] = useState(false);
+  const { trackAction, subscribeAction } = useActionNotifications();
 
   const loadData = async () => {
     setLoading(true);
@@ -158,6 +166,48 @@ export function StacksMonitoredPage(): JSX.Element {
       setRefreshing(false);
     }
   };
+
+  const handleRemove = async () => {
+    if (!removeTarget) {
+      return;
+    }
+    setRemoveLoading(true);
+    try {
+      const response = await createRemoveAction({
+        stackId: removeTarget.id,
+        instanceId: removeTarget.instanceId,
+      });
+      trackAction({
+        id: response.actionId,
+        type: 'remove_stack',
+        status: response.status,
+        stackId: removeTarget.id,
+        instanceId: removeTarget.instanceId,
+        userId: null,
+        message: 'Remoção enfileirada',
+        result: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        stackName: removeTarget.name,
+        instanceLabel: removeTarget.instanceLabel,
+      });
+      subscribeAction(response.actionId);
+      setToastMessage('Remoção enfileirada');
+      setRemoveTarget(null);
+      setRemoveConfirm('');
+    } catch (err) {
+      const apiMessage =
+        typeof err === 'object' && err !== null
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined;
+      const message = apiMessage || (err instanceof Error ? err.message : 'Falha ao remover stack');
+      setToastMessage(message);
+    } finally {
+      setRemoveLoading(false);
+    }
+  };
+
+  const canConfirmRemove = removeConfirm.trim().toLowerCase() === 'remover';
 
   return (
     <AppLayout
@@ -290,6 +340,19 @@ export function StacksMonitoredPage(): JSX.Element {
                           Redeploy
                         </button>
                       ) : null}
+                      <button type="button" onClick={() => setSelected(stack)}>
+                        Detalhes
+                      </button>
+                      <button
+                        type="button"
+                        className="danger"
+                        onClick={() => {
+                          setRemoveTarget(stack);
+                          setRemoveConfirm('');
+                        }}
+                      >
+                        Remover
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -342,10 +405,91 @@ export function StacksMonitoredPage(): JSX.Element {
           setRedeployTarget(null);
         }}
         onSuccess={() => {
-          setToastMessage('Redeploy realizado com sucesso.');
+          setToastMessage('Redeploy enfileirado.');
           void loadData();
         }}
       />
+      {selected && (
+        <Modal
+          isOpen={Boolean(selected)}
+          title="Detalhes da stack"
+          className="stack-detail-modal"
+          onClose={() => setSelected(null)}
+        >
+          <div className="stack-summary">
+            <div>
+              <div className="stack-summary-title">Stack selecionada</div>
+              <div className="stack-summary-subtitle">{selected.instanceLabel}</div>
+            </div>
+            <div className="stack-summary-badges">
+              <span className={`badge ${selected.status === 'ok' ? 'ok' : 'warn'}`}>
+                {selected.status === 'ok' ? 'OK' : 'Atenção'}
+              </span>
+            </div>
+          </div>
+          {globalStackNames.has(selected.name.toLowerCase()) && selected.instanceId && !selected.removedAt ? (
+            <div className="stack-redeploy">
+              <button
+                type="button"
+                onClick={() => {
+                  const target = stacks.find((stack) => stack.id === selected.id) ?? null;
+                  setRedeployTarget(target);
+                  setRedeployOpen(true);
+                }}
+              >
+                Redeploy stack
+              </button>
+            </div>
+          ) : null}
+          <div className="stack-metadata">
+            <div>
+              <strong>Stack</strong>
+              <span>{selected.name}</span>
+            </div>
+            <div>
+              <strong>Drift entre instâncias</strong>
+              <span>{selected.instanceDrifted ? 'Sim' : 'Não'}</span>
+            </div>
+            <div>
+              <strong>Drift de digest</strong>
+              <span>{selected.digestDrifted ? 'Sim' : 'Não'}</span>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {removeTarget && (
+        <Modal
+          isOpen={Boolean(removeTarget)}
+          title="Remover stack"
+          className="danger-modal"
+          onClose={() => setRemoveTarget(null)}
+        >
+          <p>
+            Você está prestes a remover a stack <strong>{removeTarget.name}</strong> na instância{' '}
+            <strong>{removeTarget.instanceLabel}</strong>.
+          </p>
+          <p>Para confirmar, digite <strong>remover</strong>.</p>
+          <input
+            value={removeConfirm}
+            onChange={(event) => setRemoveConfirm(event.target.value)}
+            placeholder="Digite remover"
+            disabled={removeLoading}
+          />
+          <div className="modal-actions">
+            <button
+              type="button"
+              className="danger"
+              disabled={!canConfirmRemove || removeLoading}
+              onClick={handleRemove}
+            >
+              {removeLoading ? 'Removendo...' : 'Confirmar remoção'}
+            </button>
+            <button type="button" className="secondary" onClick={() => setRemoveTarget(null)} disabled={removeLoading}>
+              Cancelar
+            </button>
+          </div>
+        </Modal>
+      )}
       {toastMessage && (
         <div className="toast" role="status" onAnimationEnd={() => setToastMessage(null)}>
           {toastMessage}

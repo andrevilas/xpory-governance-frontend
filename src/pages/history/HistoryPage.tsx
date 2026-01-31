@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { AppLayout } from '../../components/layout/AppLayout';
+import { Modal } from '../../components/ui/Modal';
 import { StackRedeployModal } from '../../components/stacks/StackRedeployModal';
+import { useActionNotifications } from '../../context/actions/useActionNotifications';
+import { createRemoveAction } from '../../services/actions';
 import { fetchInventoryStacks, InventoryStack } from '../../services/inventory';
-import { fetchStacksLocal, StackLocal } from '../../services/stacksLocal';
+import { fetchStackDeployHistory, fetchStacksLocal, StackDeployHistory, StackLocal } from '../../services/stacksLocal';
 import '../dashboard/dashboard.css';
 
 type HistoryRow = {
@@ -34,6 +37,15 @@ export function HistoryPage(): JSX.Element {
   const [historyPageSize, setHistoryPageSize] = useState(10);
   const [redeployTarget, setRedeployTarget] = useState<InventoryStack | null>(null);
   const [redeployOpen, setRedeployOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
+  const [detailsEntries, setDetailsEntries] = useState<StackDeployHistory[]>([]);
+  const [detailsTarget, setDetailsTarget] = useState<HistoryRow | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<HistoryRow | null>(null);
+  const [removeConfirm, setRemoveConfirm] = useState('');
+  const [removeLoading, setRemoveLoading] = useState(false);
+  const { trackAction, subscribeAction } = useActionNotifications();
 
   const loadData = async () => {
     setLoading(true);
@@ -141,12 +153,87 @@ export function HistoryPage(): JSX.Element {
     () => new Set(localStacks.map((stack) => stack.name.toLowerCase())),
     [localStacks],
   );
+  const localStackIdByName = useMemo(() => {
+    const map = new Map<string, string>();
+    localStacks.forEach((stack) => map.set(stack.name.toLowerCase(), stack.id));
+    return map;
+  }, [localStacks]);
 
   const handleOpenRedeploy = (row: HistoryRow) => {
     const target = stacks.find((stack) => stack.id === row.id) ?? null;
     setRedeployTarget(target);
     setRedeployOpen(true);
   };
+
+  const handleOpenDetails = async (row: HistoryRow) => {
+    if (!row.instanceId) {
+      setDetailsError('Instância não encontrada para este registro.');
+      setDetailsOpen(true);
+      return;
+    }
+    const stackId = localStackIdByName.get(row.name.toLowerCase());
+    if (!stackId) {
+      setDetailsError('Stack global não encontrada para este registro.');
+      setDetailsOpen(true);
+      return;
+    }
+    setDetailsOpen(true);
+    setDetailsLoading(true);
+    setDetailsError(null);
+    setDetailsTarget(row);
+    try {
+      const data = await fetchStackDeployHistory(stackId, row.instanceId, 5);
+      setDetailsEntries(data);
+    } catch (err) {
+      void err;
+      setDetailsError('Não foi possível carregar os detalhes de deploy.');
+      setDetailsEntries([]);
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!removeTarget) {
+      return;
+    }
+    setRemoveLoading(true);
+    try {
+      const response = await createRemoveAction({
+        stackId: removeTarget.id,
+        instanceId: removeTarget.instanceId,
+      });
+      trackAction({
+        id: response.actionId,
+        type: 'remove_stack',
+        status: response.status,
+        stackId: removeTarget.id,
+        instanceId: removeTarget.instanceId,
+        userId: null,
+        message: 'Remoção enfileirada',
+        result: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        stackName: removeTarget.name,
+        instanceLabel: removeTarget.instanceLabel,
+      });
+      subscribeAction(response.actionId);
+      setToastMessage('Remoção enfileirada');
+      setRemoveTarget(null);
+      setRemoveConfirm('');
+    } catch (err) {
+      const apiMessage =
+        typeof err === 'object' && err !== null
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined;
+      const message = apiMessage || (err instanceof Error ? err.message : 'Falha ao remover stack');
+      setToastMessage(message);
+    } finally {
+      setRemoveLoading(false);
+    }
+  };
+
+  const canConfirmRemove = removeConfirm.trim().toLowerCase() === 'remover';
 
   return (
     <AppLayout title="Histórico operacional">
@@ -253,11 +340,26 @@ export function HistoryPage(): JSX.Element {
                       </div>
                     </td>
                     <td>
-                      {globalStackNames.has(row.name.toLowerCase()) && row.instanceId ? (
-                        <button type="button" onClick={() => handleOpenRedeploy(row)}>
-                          Redeploy
+                      <div className="stack-redeploy">
+                        {globalStackNames.has(row.name.toLowerCase()) && row.instanceId ? (
+                          <button type="button" onClick={() => handleOpenRedeploy(row)}>
+                            Redeploy
+                          </button>
+                        ) : null}
+                        <button type="button" onClick={() => handleOpenDetails(row)}>
+                          Detalhes
                         </button>
-                      ) : null}
+                        <button
+                          type="button"
+                          className="danger"
+                          onClick={() => {
+                            setRemoveTarget(row);
+                            setRemoveConfirm('');
+                          }}
+                        >
+                          Remover
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -310,10 +412,125 @@ export function HistoryPage(): JSX.Element {
           setRedeployTarget(null);
         }}
         onSuccess={() => {
-          setToastMessage('Redeploy realizado com sucesso.');
+          setToastMessage('Redeploy enfileirado.');
           void loadData();
         }}
       />
+      {removeTarget && (
+        <Modal
+          isOpen={Boolean(removeTarget)}
+          title="Remover stack"
+          className="danger-modal"
+          onClose={() => setRemoveTarget(null)}
+        >
+          <p>
+            Você está prestes a remover a stack <strong>{removeTarget.name}</strong> na instância{' '}
+            <strong>{removeTarget.instanceLabel}</strong>.
+          </p>
+          <p>Para confirmar, digite <strong>remover</strong>.</p>
+          <input
+            value={removeConfirm}
+            onChange={(event) => setRemoveConfirm(event.target.value)}
+            placeholder="Digite remover"
+            disabled={removeLoading}
+          />
+          <div className="modal-actions">
+            <button
+              type="button"
+              className="danger"
+              disabled={!canConfirmRemove || removeLoading}
+              onClick={handleRemove}
+            >
+              {removeLoading ? 'Removendo...' : 'Confirmar remoção'}
+            </button>
+            <button type="button" className="secondary" onClick={() => setRemoveTarget(null)} disabled={removeLoading}>
+              Cancelar
+            </button>
+          </div>
+        </Modal>
+      )}
+      <Modal
+        isOpen={detailsOpen}
+        title="Detalhes do redeploy"
+        onClose={() => {
+          setDetailsOpen(false);
+          setDetailsEntries([]);
+          setDetailsTarget(null);
+          setDetailsError(null);
+        }}
+      >
+        {detailsError && <div className="inline-alert">{detailsError}</div>}
+        {detailsLoading ? (
+          <div className="empty-state">Carregando...</div>
+        ) : detailsEntries.length === 0 ? (
+          <div className="empty-state">Nenhum log de redeploy encontrado.</div>
+        ) : (
+          detailsEntries.map((entry) => (
+            <div key={entry.id} className="redeploy-logs">
+              <div className="redeploy-summary">
+                <strong>{detailsTarget?.name ?? 'Stack'}</strong>
+                <span>{new Date(entry.timestamp).toLocaleString('pt-BR')}</span>
+                <span>Status: {entry.result}</span>
+                {entry.message ? <span>{entry.message}</span> : null}
+              </div>
+              {entry.refreshLog && entry.refreshLog.length > 0 && (
+                <>
+                  <h4>Refresh de imagens</h4>
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Imagem</th>
+                        <th>Tag</th>
+                        <th>Removida</th>
+                        <th>Puxada</th>
+                        <th>Erros</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {entry.refreshLog.map((item) => (
+                        <tr key={`${entry.id}-${item.image}:${item.tag}`}>
+                          <td>{item.image}</td>
+                          <td>{item.tag}</td>
+                          <td>{item.removed ? 'Sim' : 'Nao'}</td>
+                          <td>{item.pulled ? 'Sim' : 'Nao'}</td>
+                          <td>{item.errors.join(', ')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              )}
+              {entry.digestLog && entry.digestLog.length > 0 && (
+                <>
+                  <h4>Validacao de digest</h4>
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Imagem</th>
+                        <th>Tag</th>
+                        <th>Local</th>
+                        <th>Registry</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {entry.digestLog.map((item) => (
+                        <tr key={`${entry.id}-${item.image}:${item.tag}`}>
+                          <td>{item.image}</td>
+                          <td>{item.tag}</td>
+                          <td className="mono">{item.localDigest ?? ''}</td>
+                          <td className="mono">{item.registryDigest ?? ''}</td>
+                          <td>{item.status}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              )}
+            </div>
+          ))
+        )}
+      </Modal>
       {toastMessage && (
         <div className="toast" role="status" onAnimationEnd={() => setToastMessage(null)}>
           {toastMessage}

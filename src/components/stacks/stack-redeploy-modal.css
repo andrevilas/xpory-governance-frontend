@@ -55,6 +55,25 @@
   border-radius: 8px;
 }
 
+.redeploy-logs {
+  display: grid;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.redeploy-logs h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.inline-success {
+  background: #e3f6ee;
+  border: 1px solid #9bd6b7;
+  color: #145f3e;
+  padding: 8px 12px;
+  border-radius: 6px;
+}
+
 .mono {
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;

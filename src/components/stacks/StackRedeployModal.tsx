@@ -4,7 +4,6 @@ import {
   fetchStackInstanceVariables,
   fetchStackLocalPreview,
   fetchStackLocalVariables,
-  redeployStackLocal,
   StackLocal,
   StackInstanceVariable,
   StackLocalVariable,
@@ -12,6 +11,8 @@ import {
 } from '../../services/stacksLocal';
 import { InventoryStack } from '../../services/inventory';
 import { fetchStackRegistryImages, RegistryImageState } from '../../services/registry';
+import { createRedeployAction } from '../../services/actions';
+import { useActionNotifications } from '../../context/actions/useActionNotifications';
 import { Modal } from '../ui/Modal';
 import './stack-redeploy-modal.css';
 
@@ -55,6 +56,7 @@ export function StackRedeployModal({
   const [comparisonLoading, setComparisonLoading] = useState(false);
   const [comparisonError, setComparisonError] = useState<string | null>(null);
   const [variablesSearch, setVariablesSearch] = useState('');
+  const { trackAction, subscribeAction } = useActionNotifications();
 
   const localStack = useMemo(() => {
     if (!stack) {
@@ -157,11 +159,9 @@ export function StackRedeployModal({
     return preview;
   };
 
-  const executeRedeploy = async (stackId: string, instanceId: string) => {
-    const [result] = await redeployStackLocal(stackId, { instanceIds: [instanceId] });
-    if (!result || result.status !== 'success') {
-      throw new Error(result?.message || 'Falha ao realizar redeploy.');
-    }
+  const queueRedeploy = async (stackId: string, instanceId: string) => {
+    const result = await createRedeployAction({ stackId, instanceId });
+    return result;
   };
 
   const handleConfirm = async () => {
@@ -192,7 +192,22 @@ export function StackRedeployModal({
         await loadVariables(localStack.id, instanceId);
         return;
       }
-      await executeRedeploy(localStack.id, instanceId);
+      const result = await queueRedeploy(localStack.id, instanceId);
+      trackAction({
+        id: result.actionId,
+        type: 'redeploy_stack',
+        status: result.status,
+        stackId: localStack.id,
+        instanceId,
+        userId: null,
+        message: 'Redeploy enfileirado',
+        result: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        stackName: stack.name,
+        instanceLabel: stack.instanceName ?? `Endpoint ${stack.endpointId}`,
+      });
+      subscribeAction(result.actionId);
       onSuccess?.();
       onClose();
     } catch (err) {
@@ -246,7 +261,22 @@ export function StackRedeployModal({
         return;
       }
 
-      await executeRedeploy(localStack.id, instanceId);
+      const result = await queueRedeploy(localStack.id, instanceId);
+      trackAction({
+        id: result.actionId,
+        type: 'redeploy_stack',
+        status: result.status,
+        stackId: localStack.id,
+        instanceId,
+        userId: null,
+        message: 'Redeploy enfileirado',
+        result: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        stackName: stack.name,
+        instanceLabel: stack.instanceName ?? `Endpoint ${stack.endpointId}`,
+      });
+      subscribeAction(result.actionId);
       setVariablesOpen(false);
       onSuccess?.();
       onClose();
@@ -278,6 +308,7 @@ export function StackRedeployModal({
       </div>
     );
   };
+
 
   const instanceValueMap = useMemo(() => {
     const map = new Map<string, StackInstanceVariable>();

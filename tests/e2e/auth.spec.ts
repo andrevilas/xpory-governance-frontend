@@ -26,5 +26,6 @@ test.describe('Auth', () => {
     await login(page);
     await page.click(selectors.auth.logout);
     await expect(page).toHaveURL(/\/login/);
+    await expect(page.locator(selectors.auth.email)).toBeVisible();
   });
 });

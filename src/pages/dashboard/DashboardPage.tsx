@@ -15,12 +15,13 @@ import {
   fetchInventoryStacks,
   fetchInventorySummary,
   runInventory,
-  removeInventoryStack,
   InventoryStack,
   InventorySummary,
 } from '../../services/inventory';
 import { fetchStacksLocal, StackLocal } from '../../services/stacksLocal';
 import { StackRedeployModal } from '../../components/stacks/StackRedeployModal';
+import { createRemoveAction } from '../../services/actions';
+import { useActionNotifications } from '../../context/actions/useActionNotifications';
 import {
   fetchRegistryRuns,
   fetchStackRegistryImages,
@@ -84,6 +85,7 @@ export function DashboardPage(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [redeployTarget, setRedeployTarget] = useState<InventoryStack | null>(null);
   const [redeployOpen, setRedeployOpen] = useState(false);
+  const { trackAction, subscribeAction } = useActionNotifications();
 
   const auditFailedCount = useMemo(() => {
     if (!auditSummary) {
@@ -406,11 +408,28 @@ export function DashboardPage(): JSX.Element {
     }
     setRemoveLoading(true);
     try {
-      await removeInventoryStack(removeTarget.id);
-      setToastMessage('Stack removida com sucesso');
+      const response = await createRemoveAction({
+        stackId: removeTarget.id,
+        instanceId: removeTarget.instanceId,
+      });
+      trackAction({
+        id: response.actionId,
+        type: 'remove_stack',
+        status: response.status,
+        stackId: removeTarget.id,
+        instanceId: removeTarget.instanceId,
+        userId: null,
+        message: 'Remoção enfileirada',
+        result: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        stackName: removeTarget.name,
+        instanceLabel: removeTarget.instanceLabel,
+      });
+      subscribeAction(response.actionId);
+      setToastMessage('Remoção enfileirada');
       setRemoveTarget(null);
       setRemoveConfirm('');
-      await loadData();
     } catch (err) {
       const apiMessage =
         typeof err === 'object' && err !== null
@@ -1015,7 +1034,7 @@ export function DashboardPage(): JSX.Element {
           setRedeployTarget(null);
         }}
         onSuccess={() => {
-          setToastMessage('Redeploy realizado com sucesso.');
+          setToastMessage('Redeploy enfileirado.');
           void loadData();
         }}
       />

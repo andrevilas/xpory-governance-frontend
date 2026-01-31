@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../../context/auth/useAuth';
+import { ActionNotificationsPanel } from '../actions/ActionNotificationsPanel';
 import './app-layout.css';
 
 type AppLayoutProps = {
@@ -153,6 +154,8 @@ export function AppLayout({ title, children, headerAction }: AppLayoutProps): JS
           {children}
         </main>
       </div>
+
+      <ActionNotificationsPanel />
     </div>
   );
 }

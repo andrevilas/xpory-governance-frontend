@@ -10,8 +10,10 @@ export async function login(page: Page) {
   const password = process.env.PLAYWRIGHT_USER_PASSWORD ?? DEFAULT_PASSWORD;
 
   await page.goto('/login');
+  await page.waitForLoadState('domcontentloaded');
   await page.fill(selectors.auth.email, email);
   await page.fill(selectors.auth.password, password);
   await page.click(selectors.auth.submit);
   await expect(page).toHaveURL(/\/app\/dashboard/);
+  await expect(page.locator(selectors.dashboard.summaryCards)).toBeVisible();
 }
