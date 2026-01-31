@@ -34,6 +34,11 @@ export async function createRemoveAction(payload: { stackId: string; instanceId?
   return response.data;
 }
 
+export async function createRegistryUpdateAction(payload: { stackId: string; dryRun?: boolean }): Promise<ActionResponseDto> {
+  const response = await api.post<ActionResponseDto>('/actions/registry-update', payload);
+  return response.data;
+}
+
 export async function fetchAction(id: string): Promise<ActionDto> {
   const response = await api.get<ActionDto>(`/actions/${id}`);
   return response.data;

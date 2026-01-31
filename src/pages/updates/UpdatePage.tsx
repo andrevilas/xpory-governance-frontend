@@ -6,12 +6,13 @@ import {
   fetchRegistryRuns,
   fetchStackRegistryImages,
   runRegistry,
-  updateRegistryStack,
   RegistryImageState,
   RegistryRun,
   RegistryUpdateResult,
 } from '../../services/registry';
 import { executeUpdate, fetchCompose, UpdateResponse, validateCompose, ComposeValidation } from '../../services/update';
+import { createRegistryUpdateAction } from '../../services/actions';
+import { useActionNotifications } from '../../context/actions/useActionNotifications';
 import './update.css';
 
 type UpdateStatus = 'pending' | 'approved' | 'running' | 'success' | 'failed';
@@ -42,6 +43,7 @@ export function UpdatePage(): JSX.Element {
   const [registryUpdateLoading, setRegistryUpdateLoading] = useState(false);
   const [registryUpdateResult, setRegistryUpdateResult] = useState<RegistryUpdateResult | null>(null);
   const [registryRuns, setRegistryRuns] = useState<RegistryRun[]>([]);
+  const { trackAction } = useActionNotifications();
 
   const canApprove = status === 'pending';
   const canExecute = status === 'approved';
@@ -191,13 +193,25 @@ export function UpdatePage(): JSX.Element {
     setRegistryError(null);
     setRegistryUpdateResult(null);
     try {
-      const result = await updateRegistryStack(selected.id, { dryRun: registryUpdateDryRun });
-      setRegistryUpdateResult(result);
-      const refreshed = await fetchStackRegistryImages(selected.id);
-      setRegistryImages(refreshed);
+      const response = await createRegistryUpdateAction({
+        stackId: selected.id,
+        dryRun: registryUpdateDryRun,
+      });
+      trackAction({
+        id: response.actionId,
+        type: 'update_stack',
+        status: response.status,
+        stackId: selected.id,
+        instanceId: selected.instanceId,
+        userId: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        stackName: selected.name,
+        instanceLabel: selected.instanceName ?? undefined,
+      });
     } catch (err) {
       void err;
-      setRegistryError('Falha ao executar update por digest.');
+      setRegistryError('Falha ao enfileirar update por digest.');
     } finally {
       setRegistryUpdateLoading(false);
     }

@@ -9,11 +9,11 @@ import {
   fetchRegistryRuns,
   fetchStackRegistryImages,
   runRegistry,
-  updateRegistryStack,
   RegistryImageState,
   RegistryRun,
   RegistryUpdateResult,
 } from '../../services/registry';
+import { createRegistryUpdateAction } from '../../services/actions';
 import {
   createStackLocal,
   createStackLocalVersion,
@@ -30,6 +30,7 @@ import {
   StackLocalVersion,
   updateStackLocal,
 } from '../../services/stacksLocal';
+import { useActionNotifications } from '../../context/actions/useActionNotifications';
 import './stacks-local.css';
 
 type StackFormState = {
@@ -121,6 +122,7 @@ export function StacksLocalPage(): JSX.Element {
   const [registryUpdateLoading, setRegistryUpdateLoading] = useState(false);
   const [registryUpdateResult, setRegistryUpdateResult] = useState<RegistryUpdateResult | null>(null);
   const [registryRuns, setRegistryRuns] = useState<RegistryRun[]>([]);
+  const { trackAction } = useActionNotifications();
 
   const sortedStacks = useMemo(
     () => [...stacks].sort((a, b) => a.name.localeCompare(b.name)),
@@ -649,13 +651,26 @@ export function StacksLocalPage(): JSX.Element {
     setRegistryError(null);
     setRegistryUpdateResult(null);
     try {
-      const result = await updateRegistryStack(selectedInventoryStackId, { dryRun: registryUpdateDryRun });
-      setRegistryUpdateResult(result);
-      const refreshed = await fetchStackRegistryImages(selectedInventoryStackId);
-      setRegistryImages(refreshed);
+      const response = await createRegistryUpdateAction({
+        stackId: selectedInventoryStackId,
+        dryRun: registryUpdateDryRun,
+      });
+      const inventoryStack = inventoryStacks.find((stack) => stack.id === selectedInventoryStackId) ?? null;
+      trackAction({
+        id: response.actionId,
+        type: 'update_stack',
+        status: response.status,
+        stackId: selectedInventoryStackId,
+        instanceId: inventoryStack?.instanceId ?? null,
+        userId: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        stackName: inventoryStack?.name ?? selectedStack?.name ?? undefined,
+        instanceLabel: inventoryStack?.instanceName ?? undefined,
+      });
     } catch (err) {
       void err;
-      setRegistryError('Falha ao executar update por digest.');
+      setRegistryError('Falha ao enfileirar update por digest.');
     } finally {
       setRegistryUpdateLoading(false);
     }

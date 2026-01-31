@@ -14,7 +14,7 @@ const statusLabel: Record<ActionStatus, string> = {
 const typeLabel: Record<ActionType, string> = {
   redeploy_stack: 'Redeploy',
   remove_stack: 'Remoção',
-  update_stack: 'Atualização',
+  update_stack: 'Atualização por digest',
 };
 
 const formatTime = (value?: string | null) => {

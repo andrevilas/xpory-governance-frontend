@@ -20,13 +20,12 @@ import {
 } from '../../services/inventory';
 import { fetchStacksLocal, StackLocal } from '../../services/stacksLocal';
 import { StackRedeployModal } from '../../components/stacks/StackRedeployModal';
-import { createRemoveAction } from '../../services/actions';
+import { createRegistryUpdateAction, createRemoveAction } from '../../services/actions';
 import { useActionNotifications } from '../../context/actions/useActionNotifications';
 import {
   fetchRegistryRuns,
   fetchStackRegistryImages,
   runRegistry,
-  updateRegistryStack,
   RegistryImageState,
   RegistryRun,
   RegistryUpdateResult,
@@ -390,13 +389,25 @@ export function DashboardPage(): JSX.Element {
     setRegistryUpdateResult(null);
     setRegistryError(null);
     try {
-      const result = await updateRegistryStack(selected.id, { dryRun: registryUpdateDryRun });
-      setRegistryUpdateResult(result);
-      const refreshed = await fetchStackRegistryImages(selected.id);
-      setRegistryImages(refreshed);
+      const response = await createRegistryUpdateAction({
+        stackId: selected.id,
+        dryRun: registryUpdateDryRun,
+      });
+      trackAction({
+        id: response.actionId,
+        type: 'update_stack',
+        status: response.status,
+        stackId: selected.id,
+        instanceId: selected.instanceId,
+        userId: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        stackName: selected.name,
+        instanceLabel: selected.instanceLabel ?? selected.instanceName ?? undefined,
+      });
     } catch (err) {
       void err;
-      setRegistryError('Falha ao executar update por digest.');
+      setRegistryError('Falha ao enfileirar update por digest.');
     } finally {
       setRegistryUpdateLoading(false);
     }
