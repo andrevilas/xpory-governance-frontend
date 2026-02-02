@@ -30,6 +30,11 @@ export type UpdateUserPayload = {
   isActive?: boolean;
 };
 
+export type UserPermissions = {
+  instanceIds: string[];
+  stackIds: string[];
+};
+
 export async function listUsers(params?: { search?: string; role?: string; active?: boolean | null }) {
   const response = await api.get<UserRecord[]>('/users', { params });
   return response.data;
@@ -52,5 +57,20 @@ export async function updateUser(id: string, payload: UpdateUserPayload) {
 
 export async function resetUserPassword(id: string) {
   const response = await api.post<{ status: string }>(`/users/${id}/reset-password`);
+  return response.data;
+}
+
+export async function getUserPermissions(id: string) {
+  const response = await api.get<UserPermissions>(`/users/${id}/permissions`);
+  return response.data;
+}
+
+export async function updateUserPermissions(id: string, payload: UserPermissions) {
+  const response = await api.put<UserPermissions>(`/users/${id}/permissions`, payload);
+  return response.data;
+}
+
+export async function setUserPassword(id: string, payload: { password: string; confirmPassword: string }) {
+  const response = await api.post<{ status: string }>(`/users/${id}/set-password`, payload);
   return response.data;
 }

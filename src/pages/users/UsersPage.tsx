@@ -4,7 +4,20 @@ import { AppLayout } from '../../components/layout/AppLayout';
 import { Modal } from '../../components/ui/Modal';
 import { UserFormModal, UserFormState } from '../../components/users/UserFormModal';
 import { changePassword } from '../../services/auth';
-import { createUser, listRoles, listUsers, resetUserPassword, updateUser, UserRecord } from '../../services/users';
+import { fetchInstances } from '../../services/instances';
+import { fetchStacksLocal, StackLocal } from '../../services/stacksLocal';
+import {
+  createUser,
+  getUserPermissions,
+  listRoles,
+  listUsers,
+  resetUserPassword,
+  setUserPassword,
+  updateUser,
+  updateUserPermissions,
+  UserPermissions,
+  UserRecord,
+} from '../../services/users';
 import './users.css';
 
 const emptyForm: UserFormState = {
@@ -27,6 +40,13 @@ type PasswordFormState = {
   newPassword: string;
   confirmPassword: string;
 };
+
+type AdminPasswordFormState = {
+  newPassword: string;
+  confirmPassword: string;
+};
+
+type PermissionFormState = UserPermissions;
 
 function formatPhone(phone?: string | null): string {
   if (!phone) {
@@ -59,6 +79,21 @@ export function UsersPage(): JSX.Element {
   });
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSaving, setPasswordSaving] = useState(false);
+  const [adminPasswordUser, setAdminPasswordUser] = useState<UserRecord | null>(null);
+  const [adminPasswordForm, setAdminPasswordForm] = useState<AdminPasswordFormState>({
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [adminPasswordError, setAdminPasswordError] = useState<string | null>(null);
+  const [adminPasswordSaving, setAdminPasswordSaving] = useState(false);
+  const [permissionsUser, setPermissionsUser] = useState<UserRecord | null>(null);
+  const [permissionsModalOpen, setPermissionsModalOpen] = useState(false);
+  const [permissionsForm, setPermissionsForm] = useState<PermissionFormState>({ instanceIds: [], stackIds: [] });
+  const [permissionsError, setPermissionsError] = useState<string | null>(null);
+  const [permissionsSaving, setPermissionsSaving] = useState(false);
+  const [permissionsLoading, setPermissionsLoading] = useState(false);
+  const [instances, setInstances] = useState<Array<{ id: string; name: string }>>([]);
+  const [stacksLocal, setStacksLocal] = useState<StackLocal[]>([]);
 
   const loadData = async () => {
     setLoading(true);
@@ -107,6 +142,70 @@ export function UsersPage(): JSX.Element {
     setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
     setPasswordError(null);
     setIsPasswordModalOpen(true);
+  };
+
+  const openAdminPasswordModal = (user: UserRecord) => {
+    setAdminPasswordUser(user);
+    setAdminPasswordForm({ newPassword: '', confirmPassword: '' });
+    setAdminPasswordError(null);
+  };
+
+  const closeAdminPasswordModal = () => {
+    setAdminPasswordUser(null);
+    setAdminPasswordForm({ newPassword: '', confirmPassword: '' });
+    setAdminPasswordError(null);
+    setAdminPasswordSaving(false);
+  };
+
+  const openPermissionsModal = async (user: UserRecord) => {
+    setPermissionsUser(user);
+    setPermissionsModalOpen(true);
+    setPermissionsError(null);
+    setPermissionsLoading(true);
+    try {
+      const [permissionsResult, instancesResult, stacksResult] = await Promise.all([
+        getUserPermissions(user.id),
+        fetchInstances(),
+        fetchStacksLocal(),
+      ]);
+      setPermissionsForm({
+        instanceIds: permissionsResult.instanceIds ?? [],
+        stackIds: permissionsResult.stackIds ?? [],
+      });
+      setInstances(instancesResult.map((instance) => ({ id: instance.id, name: instance.name })));
+      setStacksLocal(stacksResult);
+    } catch (err) {
+      void err;
+      setPermissionsError('Não foi possível carregar permissões.');
+    } finally {
+      setPermissionsLoading(false);
+    }
+  };
+
+  const closePermissionsModal = () => {
+    setPermissionsModalOpen(false);
+    setPermissionsUser(null);
+    setPermissionsForm({ instanceIds: [], stackIds: [] });
+    setPermissionsError(null);
+  };
+
+  const validatePasswordPolicy = (password: string): string | null => {
+    if (password.length < 8) {
+      return 'A senha deve ter ao menos 8 caracteres.';
+    }
+    if (!/[A-Z]/.test(password)) {
+      return 'A senha deve conter ao menos 1 letra maiuscula.';
+    }
+    if (!/[a-z]/.test(password)) {
+      return 'A senha deve conter ao menos 1 letra minuscula.';
+    }
+    if (!/[0-9]/.test(password)) {
+      return 'A senha deve conter ao menos 1 numero.';
+    }
+    if (!/[^A-Za-z0-9]/.test(password)) {
+      return 'A senha deve conter ao menos 1 caractere especial.';
+    }
+    return null;
   };
 
   const closePasswordModal = () => {
@@ -202,6 +301,54 @@ export function UsersPage(): JSX.Element {
     }
   };
 
+  const handleAdminSetPassword = async () => {
+    if (!adminPasswordUser) {
+      return;
+    }
+    const policyError = validatePasswordPolicy(adminPasswordForm.newPassword);
+    if (policyError) {
+      setAdminPasswordError(policyError);
+      return;
+    }
+    if (adminPasswordForm.newPassword !== adminPasswordForm.confirmPassword) {
+      setAdminPasswordError('A confirmacao nao confere com a senha.');
+      return;
+    }
+    setAdminPasswordSaving(true);
+    setAdminPasswordError(null);
+    try {
+      await setUserPassword(adminPasswordUser.id, {
+        password: adminPasswordForm.newPassword,
+        confirmPassword: adminPasswordForm.confirmPassword,
+      });
+      setToastMessage(`Senha atualizada para ${adminPasswordUser.email}`);
+      closeAdminPasswordModal();
+    } catch (err) {
+      void err;
+      setAdminPasswordError('Não foi possível alterar a senha.');
+    } finally {
+      setAdminPasswordSaving(false);
+    }
+  };
+
+  const handleSavePermissions = async () => {
+    if (!permissionsUser) {
+      return;
+    }
+    setPermissionsSaving(true);
+    setPermissionsError(null);
+    try {
+      await updateUserPermissions(permissionsUser.id, permissionsForm);
+      setToastMessage(`Permissoes atualizadas para ${permissionsUser.email}`);
+      closePermissionsModal();
+    } catch (err) {
+      void err;
+      setPermissionsError('Não foi possível salvar permissões.');
+    } finally {
+      setPermissionsSaving(false);
+    }
+  };
+
   const userCount = useMemo(() => users.length, [users]);
 
   return (
@@ -254,12 +401,20 @@ export function UsersPage(): JSX.Element {
                         <button type="button" className="link" onClick={() => openEdit(user)}>
                           Editar
                         </button>
+                        <button type="button" className="link" onClick={() => openAdminPasswordModal(user)}>
+                          Alterar senha
+                        </button>
                         <button type="button" className="link" onClick={() => handleToggleActive(user)}>
                           {user.isActive ? 'Desativar' : 'Ativar'}
                         </button>
                         <button type="button" className="link" onClick={() => handleResetPassword(user)}>
                           Resetar senha
                         </button>
+                        {user.role === 'operator' ? (
+                          <button type="button" className="link" onClick={() => void openPermissionsModal(user)}>
+                            Permissoes
+                          </button>
+                        ) : null}
                       </td>
                     </tr>
                   ))}
@@ -340,6 +495,142 @@ export function UsersPage(): JSX.Element {
             Cancelar
           </button>
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={Boolean(adminPasswordUser)}
+        title={adminPasswordUser ? `Alterar senha: ${adminPasswordUser.email}` : 'Alterar senha'}
+        onClose={closeAdminPasswordModal}
+      >
+        <div className="form-grid">
+          <label>
+            Nova senha
+            <input
+              type="password"
+              value={adminPasswordForm.newPassword}
+              onChange={(event) =>
+                setAdminPasswordForm((prev) => ({ ...prev, newPassword: event.target.value }))
+              }
+              placeholder="Nova senha"
+            />
+          </label>
+          <label>
+            Confirmar senha
+            <input
+              type="password"
+              value={adminPasswordForm.confirmPassword}
+              onChange={(event) =>
+                setAdminPasswordForm((prev) => ({ ...prev, confirmPassword: event.target.value }))
+              }
+              placeholder="Confirmar senha"
+            />
+          </label>
+        </div>
+        <div className="users-password-policy">
+          <strong>Politica de senha:</strong>
+          <ul>
+            <li>Minimo de 8 caracteres</li>
+            <li>Ao menos 1 letra maiuscula</li>
+            <li>Ao menos 1 letra minuscula</li>
+            <li>Ao menos 1 numero</li>
+            <li>Ao menos 1 caractere especial</li>
+          </ul>
+        </div>
+        {adminPasswordError ? <div className="inline-alert">{adminPasswordError}</div> : null}
+        <div className="form-actions">
+          <button type="button" className="secondary" onClick={closeAdminPasswordModal} disabled={adminPasswordSaving}>
+            Cancelar
+          </button>
+          <button type="button" onClick={handleAdminSetPassword} disabled={adminPasswordSaving}>
+            {adminPasswordSaving ? 'Salvando...' : 'Salvar'}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={permissionsModalOpen}
+        title={permissionsUser ? `Permissoes: ${permissionsUser.email}` : 'Permissoes'}
+        onClose={closePermissionsModal}
+      >
+        {permissionsLoading ? (
+          <p>Carregando permissoes...</p>
+        ) : (
+          <>
+            <div className="users-permissions-grid">
+              <div>
+                <h4>Instancias permitidas</h4>
+                {instances.length === 0 ? (
+                  <p>Nenhuma instancia disponivel.</p>
+                ) : (
+                  <ul className="users-checklist">
+                    {instances.map((instance) => (
+                      <li key={instance.id}>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={permissionsForm.instanceIds.includes(instance.id)}
+                            onChange={(event) => {
+                              setPermissionsForm((prev) => {
+                                const next = new Set(prev.instanceIds);
+                                if (event.target.checked) {
+                                  next.add(instance.id);
+                                } else {
+                                  next.delete(instance.id);
+                                }
+                                return { ...prev, instanceIds: Array.from(next) };
+                              });
+                            }}
+                          />
+                          {instance.name}
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div>
+                <h4>Stacks globais permitidas</h4>
+                {stacksLocal.length === 0 ? (
+                  <p>Nenhuma stack cadastrada.</p>
+                ) : (
+                  <ul className="users-checklist">
+                    {stacksLocal.map((stack) => (
+                      <li key={stack.id}>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={permissionsForm.stackIds.includes(stack.id)}
+                            onChange={(event) => {
+                              setPermissionsForm((prev) => {
+                                const next = new Set(prev.stackIds);
+                                if (event.target.checked) {
+                                  next.add(stack.id);
+                                } else {
+                                  next.delete(stack.id);
+                                }
+                                return { ...prev, stackIds: Array.from(next) };
+                              });
+                            }}
+                          />
+                          {stack.name}
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+            {permissionsError ? <div className="inline-alert">{permissionsError}</div> : null}
+            <div className="form-actions">
+              <button type="button" className="secondary" onClick={closePermissionsModal} disabled={permissionsSaving}>
+                Cancelar
+              </button>
+              <button type="button" onClick={handleSavePermissions} disabled={permissionsSaving}>
+                {permissionsSaving ? 'Salvando...' : 'Salvar permissoes'}
+              </button>
+            </div>
+          </>
+        )}
       </Modal>
     </AppLayout>
   );
