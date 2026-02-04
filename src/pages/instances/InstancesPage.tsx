@@ -179,6 +179,14 @@ export function InstancesPage(): JSX.Element {
     return set;
   }, [instanceStacks]);
 
+  const remoteStackNameConflict = useMemo(() => {
+    if (!selectedRemoteStack) {
+      return false;
+    }
+    const normalized = selectedRemoteStack.name.toLowerCase();
+    return stacks.some((stack) => stack.name.toLowerCase() === normalized);
+  }, [selectedRemoteStack, stacks]);
+
   const stackNameConflict = useMemo(() => {
     const normalized = newStackName.trim().toLowerCase();
     if (!normalized) {
@@ -729,6 +737,11 @@ export function InstancesPage(): JSX.Element {
       setCreateStackError('Informe nome e compose para criar a stack global.');
       return;
     }
+    const normalizedName = newStackName.trim().toLowerCase();
+    if (stacks.some((stack) => stack.name.trim().toLowerCase() === normalizedName)) {
+      setCreateStackError('Já existe uma stack global com este nome. Remova a duplicada antes de criar outra.');
+      return;
+    }
     setCreatingStack(true);
     try {
       const created = await createStackLocal({
@@ -1104,7 +1117,7 @@ export function InstancesPage(): JSX.Element {
                       type="button"
                       className="ghost"
                       onClick={() => void openCreateStackForm(true)}
-                      disabled={!selectedRemoteStack}
+                      disabled={!selectedRemoteStack || remoteStackNameConflict}
                     >
                       Criar global a partir da remota
                     </button>
@@ -1326,8 +1339,8 @@ export function InstancesPage(): JSX.Element {
       >
         {createStackError && <div className="inline-alert">{createStackError}</div>}
         {stackNameConflict && (
-          <div className="inline-warning">
-            Já existe uma stack global com este nome. Uma nova stack será criada mesmo assim.
+          <div className="inline-alert">
+            Já existe uma stack global com este nome. Não é permitido criar duplicadas.
           </div>
         )}
         <div className="form-grid">
@@ -1352,7 +1365,7 @@ export function InstancesPage(): JSX.Element {
           />
         </label>
         <div className="form-actions">
-          <button type="button" onClick={handleCreateStack} disabled={creatingStack}>
+          <button type="button" onClick={handleCreateStack} disabled={creatingStack || stackNameConflict}>
             Criar stack global
           </button>
           <button type="button" className="secondary" onClick={() => setCreateStackOpen(false)}>

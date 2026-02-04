@@ -20,7 +20,7 @@ import {
 } from '../../services/inventory';
 import { fetchStacksLocal, StackLocal } from '../../services/stacksLocal';
 import { StackRedeployModal } from '../../components/stacks/StackRedeployModal';
-import { createRegistryUpdateAction, createRemoveAction } from '../../services/actions';
+import { createRegistryUpdateAction, createRemoveAction, createRemoveLocalAction } from '../../services/actions';
 import { useActionNotifications } from '../../context/actions/useActionNotifications';
 import {
   fetchRegistryRuns,
@@ -80,6 +80,9 @@ export function DashboardPage(): JSX.Element {
   const [removeTarget, setRemoveTarget] = useState<StackRow | null>(null);
   const [removeConfirm, setRemoveConfirm] = useState('');
   const [removeLoading, setRemoveLoading] = useState(false);
+  const [removeLocalTarget, setRemoveLocalTarget] = useState<StackRow | null>(null);
+  const [removeLocalConfirm, setRemoveLocalConfirm] = useState('');
+  const [removeLocalLoading, setRemoveLocalLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [redeployTarget, setRedeployTarget] = useState<InventoryStack | null>(null);
@@ -454,6 +457,48 @@ export function DashboardPage(): JSX.Element {
   };
 
   const canConfirmRemove = removeConfirm.trim().toLowerCase() === 'remover';
+  const canConfirmRemoveLocal = removeLocalConfirm.trim().toLowerCase() === 'remover local';
+
+  const handleRemoveLocal = async () => {
+    if (!removeLocalTarget) {
+      return;
+    }
+    setRemoveLocalLoading(true);
+    try {
+      const response = await createRemoveLocalAction({
+        stackId: removeLocalTarget.id,
+        instanceId: removeLocalTarget.instanceId,
+      });
+      trackAction({
+        id: response.actionId,
+        type: 'remove_stack_local',
+        status: response.status,
+        stackId: removeLocalTarget.id,
+        instanceId: removeLocalTarget.instanceId,
+        userId: null,
+        message: 'Remoção local enfileirada',
+        result: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        stackName: removeLocalTarget.name,
+        instanceLabel: removeLocalTarget.instanceLabel,
+      });
+      subscribeAction(response.actionId);
+      setToastMessage('Remoção local enfileirada');
+      setRemoveLocalTarget(null);
+      setRemoveLocalConfirm('');
+      void loadData();
+    } catch (err) {
+      const apiMessage =
+        typeof err === 'object' && err !== null
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined;
+      const message = apiMessage || (err instanceof Error ? err.message : 'Falha ao remover stack localmente');
+      setToastMessage(message);
+    } finally {
+      setRemoveLocalLoading(false);
+    }
+  };
 
   const formatStatus = (status: string) => (status === 'success' ? 'OK' : 'Não concluído');
   const statusClass = (status: string) => (status === 'success' ? 'ok' : 'warn');
@@ -671,6 +716,16 @@ export function DashboardPage(): JSX.Element {
                       setRemoveConfirm('');
                     }}>
                       Remover
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => {
+                        setRemoveLocalTarget(stack);
+                        setRemoveLocalConfirm('');
+                      }}
+                    >
+                      Remover local
                     </button>
                   </td>
                 </tr>
@@ -1029,6 +1084,48 @@ export function DashboardPage(): JSX.Element {
                 {removeLoading ? 'Removendo...' : 'Confirmar remoção'}
               </button>
               <button type="button" className="secondary" onClick={() => setRemoveTarget(null)} disabled={removeLoading}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {removeLocalTarget && (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal danger-modal">
+            <header>
+              <h3>Remover stack localmente</h3>
+              <button type="button" onClick={() => setRemoveLocalTarget(null)} disabled={removeLocalLoading}>
+                Fechar
+              </button>
+            </header>
+            <p>
+              Você está prestes a remover localmente a stack <strong>{removeLocalTarget.name}</strong> na instância{' '}
+              <strong>{removeLocalTarget.instanceLabel}</strong>.
+            </p>
+            <p>Esta ação remove apenas do inventário local e não remove no Portainer remoto.</p>
+            <p>Para confirmar, digite <strong>remover local</strong>.</p>
+            <input
+              value={removeLocalConfirm}
+              onChange={(event) => setRemoveLocalConfirm(event.target.value)}
+              placeholder="Digite remover local"
+            />
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="danger"
+                disabled={!canConfirmRemoveLocal || removeLocalLoading}
+                onClick={handleRemoveLocal}
+              >
+                {removeLocalLoading ? 'Removendo...' : 'Confirmar remoção local'}
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setRemoveLocalTarget(null)}
+                disabled={removeLocalLoading}
+              >
                 Cancelar
               </button>
             </div>

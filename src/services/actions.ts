@@ -2,7 +2,7 @@ import { api } from './api';
 
 export type ActionStatus = 'queued' | 'running' | 'success' | 'failed';
 
-export type ActionType = 'redeploy_stack' | 'remove_stack' | 'update_stack';
+export type ActionType = 'redeploy_stack' | 'remove_stack' | 'remove_stack_local' | 'update_stack';
 
 export type ActionDto = {
   id: string;
@@ -31,6 +31,11 @@ export async function createRedeployAction(payload: { stackId: string; instanceI
 
 export async function createRemoveAction(payload: { stackId: string; instanceId?: string | null }): Promise<ActionResponseDto> {
   const response = await api.post<ActionResponseDto>('/actions/remove', payload);
+  return response.data;
+}
+
+export async function createRemoveLocalAction(payload: { stackId: string; instanceId?: string | null }): Promise<ActionResponseDto> {
+  const response = await api.post<ActionResponseDto>('/actions/remove-local', payload);
   return response.data;
 }
 
