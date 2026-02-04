@@ -14,6 +14,7 @@ const statusLabel: Record<ActionStatus, string> = {
 const typeLabel: Record<ActionType, string> = {
   redeploy_stack: 'Redeploy',
   remove_stack: 'Remoção',
+  remove_stack_local: 'Remoção local',
   update_stack: 'Atualização por digest',
 };
 
